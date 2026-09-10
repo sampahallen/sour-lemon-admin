@@ -1,5 +1,4 @@
 import type { DeliveryArea } from '@/api/deliveryAreas'
-import type { SiteSection } from '@/api/siteSections'
 import type { OrderDetail } from '@/api/orders'
 import type { AppSetting } from '@/api/appSettings'
 
@@ -15,15 +14,6 @@ export const deliveryAreas: DeliveryArea[] = [
   { id: id(), name: 'Spintex', slug: 'spintex', deliveryFee: '25.00', isActive: true, sortOrder: 40, createdAt: now(), updatedAt: now() },
 ]
 
-// ---- Site sections (real keys, matches the backend seeder) ----
-export const siteSections: SiteSection[] = [
-  { id: id(), key: 'cakes', name: 'Cakes', isEnabled: true, showComingSoon: false, sortOrder: 0 },
-  { id: id(), key: 'jams', name: 'Jams and syrups', isEnabled: false, showComingSoon: true, sortOrder: 10 },
-  { id: id(), key: 'collaborations', name: 'Artist collaborations', isEnabled: false, showComingSoon: true, sortOrder: 20 },
-  { id: id(), key: 'merch', name: 'Merch', isEnabled: false, showComingSoon: true, sortOrder: 30 },
-  { id: id(), key: 'games', name: 'Games', isEnabled: false, showComingSoon: true, sortOrder: 40 },
-]
-
 // ---- Delivery area lookup used to denormalize orders ----
 const deliveryAreaById = (deliveryAreaId: string | null) =>
   deliveryAreaId ? (deliveryAreas.find((area) => area.id === deliveryAreaId) ?? null) : null
@@ -34,8 +24,8 @@ const [osuId, eastLegonId] = deliveryAreas.map((area) => area.id)
 export const orders: OrderDetail[] = [
   {
     id: id(),
-    orderNumber: 'SL-1001',
-    status: 'confirmed',
+    orderNumber: 'A10001',
+    status: 'received',
     paymentStatus: 'paid',
     fulfillmentType: 'sour_lemon_delivery',
     customerName: 'Ama Boateng',
@@ -59,21 +49,39 @@ export const orders: OrderDetail[] = [
     deliveryFee: '25.00',
     customerNotes: 'Please add a "Happy Birthday Ama" topper.',
     items: [
-      { id: id(), productName: 'Signature Celebration Cake', quantity: 1, unitPrice: '380.00', lineTotal: '380.00' },
-      { id: id(), productName: 'Cherry Almond Mini', quantity: 1, unitPrice: '45.00', lineTotal: '45.00' },
-      { id: id(), productName: 'Olive Oil Mini', quantity: 1, unitPrice: '45.00', lineTotal: '45.00' },
+      { id: id(), productName: 'Signature Celebration Cake', productImageUrl: null, quantity: 1, unitPrice: '380.00', lineTotal: '380.00' },
+      { id: id(), productName: 'Cherry Almond Mini', productImageUrl: null, quantity: 1, unitPrice: '45.00', lineTotal: '45.00' },
+      { id: id(), productName: 'Olive Oil Mini', productImageUrl: null, quantity: 1, unitPrice: '45.00', lineTotal: '45.00' },
     ],
     statusHistory: [
       { toStatus: 'pending_payment', fromStatus: null, note: null, createdAt: now() },
       { toStatus: 'confirmed', fromStatus: 'pending_payment', note: 'Payment verified', createdAt: now() },
     ],
-    payment: { provider: 'paystack', method: 'momo', status: 'paid', checkoutUrl: null, amount: '470.00' },
+    paymentDisplayStatus: 'needs_review',
+    paymentGroup: 'needs_attention',
+    availableActions: ['confirm_payment', 'cancel'],
+    payment: {
+      id: id(),
+      provider: 'paystack',
+      method: 'momo',
+      status: 'paid',
+      checkoutUrl: null,
+      amount: '470.00',
+      displayStatus: 'needs_review',
+      requiresManualConfirmation: true,
+      adminConfirmedAt: null,
+      adminConfirmedByUserId: null,
+      paidAt: now(),
+    },
+    allowedTransitions: ['preparing', 'cancelled'],
   },
   {
     id: id(),
-    orderNumber: 'SL-1002',
+    orderNumber: 'A10002',
     status: 'preparing',
     paymentStatus: 'paid',
+    paymentDisplayStatus: 'confirmed',
+    paymentGroup: 'paid',
     fulfillmentType: 'customer_rider',
     customerName: 'Kwesi Owusu',
     phoneNumber: '+233247654321',
@@ -94,19 +102,35 @@ export const orders: OrderDetail[] = [
     subtotal: '90.00',
     deliveryFee: '0.00',
     customerNotes: null,
-    items: [{ id: id(), productName: 'Olive Oil Mini', quantity: 2, unitPrice: '45.00', lineTotal: '90.00' }],
+    items: [{ id: id(), productName: 'Olive Oil Mini', productImageUrl: null, quantity: 2, unitPrice: '45.00', lineTotal: '90.00' }],
     statusHistory: [
       { toStatus: 'pending_payment', fromStatus: null, note: null, createdAt: now() },
       { toStatus: 'confirmed', fromStatus: 'pending_payment', note: null, createdAt: now() },
       { toStatus: 'preparing', fromStatus: 'confirmed', note: null, createdAt: now() },
     ],
-    payment: { provider: 'paystack', method: 'card', status: 'paid', checkoutUrl: null, amount: '90.00' },
+    availableActions: ['mark_ready', 'cancel'],
+    payment: {
+      id: id(),
+      provider: 'paystack',
+      method: 'card',
+      status: 'paid',
+      checkoutUrl: null,
+      amount: '90.00',
+      displayStatus: 'confirmed',
+      requiresManualConfirmation: true,
+      adminConfirmedAt: now(),
+      adminConfirmedByUserId: id(),
+      paidAt: now(),
+    },
+    allowedTransitions: ['ready_for_pickup'],
   },
   {
     id: id(),
-    orderNumber: 'SL-1003',
-    status: 'pending_payment',
+    orderNumber: 'A10003',
+    status: 'received',
     paymentStatus: 'cash_due',
+    paymentDisplayStatus: 'cash_due',
+    paymentGroup: 'pending',
     fulfillmentType: 'pickup',
     customerName: 'Efua Mensah',
     phoneNumber: '+233551122334',
@@ -121,9 +145,23 @@ export const orders: OrderDetail[] = [
     subtotal: '45.00',
     deliveryFee: '0.00',
     customerNotes: null,
-    items: [{ id: id(), productName: 'Cherry Almond Mini', quantity: 1, unitPrice: '45.00', lineTotal: '45.00' }],
+    items: [{ id: id(), productName: 'Cherry Almond Mini', productImageUrl: null, quantity: 1, unitPrice: '45.00', lineTotal: '45.00' }],
     statusHistory: [{ toStatus: 'pending_payment', fromStatus: null, note: null, createdAt: now() }],
-    payment: null,
+    availableActions: ['collect_cash', 'start_preparing', 'cancel'],
+    payment: {
+      id: id(),
+      provider: 'cash',
+      method: 'cash',
+      status: 'cash_due',
+      checkoutUrl: null,
+      amount: '45.00',
+      displayStatus: 'cash_due',
+      requiresManualConfirmation: true,
+      adminConfirmedAt: null,
+      adminConfirmedByUserId: null,
+      paidAt: null,
+    },
+    allowedTransitions: ['preparing', 'cancelled'],
   },
 ]
 

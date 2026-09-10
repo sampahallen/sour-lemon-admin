@@ -1,6 +1,7 @@
 // Keep in sync with sour-lemon-backend/src/models/types.ts
 
 export const ORDER_STATUSES = [
+  'received',
   'pending_payment',
   'confirmed',
   'preparing',

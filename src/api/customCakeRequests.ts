@@ -76,11 +76,3 @@ export function cancelCustomCakeRequest(token: string, id: string) {
     { method: 'POST' },
   )
 }
-
-export function sendCustomCakePaymentLink(token: string, id: string) {
-  return apiRequest<{ whatsappLink: string; message: string; paymentLink: string }>(
-    `/api/custom-cake-requests/${id}/send-payment-link`,
-    token,
-    { method: 'POST' },
-  )
-}

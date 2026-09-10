@@ -6,11 +6,10 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/utils/cn'
 import { useAuth } from '@/auth/authContext'
-import { listJournalCategories, listJournalPosts, type JournalCategory, type JournalPostSummary } from '@/api/journal'
+import { createJournalPost, listJournalCategories, listJournalPosts, type JournalCategory, type JournalPostSummary } from '@/api/journal'
 import { JOURNAL_POST_STATUSES, type JournalPostStatus, type Pagination } from '@/api/types'
 import { journalPublishTiming, journalStatusTone } from './journalStatus'
 import { JournalCategoriesDrawer } from './JournalCategoriesDrawer'
-import { JournalPostCreateDrawer } from './JournalPostCreateDrawer'
 
 const PAGE_SIZE = 20
 
@@ -32,7 +31,7 @@ export function JournalPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
 
   const loadCategories = async () => {
     try {
@@ -90,6 +89,22 @@ export function JournalPage() {
 
   const activeCategories = categories.filter((category) => category.isActive)
 
+  const handleCreate = async () => {
+    if (activeCategories.length === 0 || isCreating) return
+    setIsCreating(true)
+    setError(null)
+    try {
+      const { post } = await createJournalPost(token, {
+        title: 'Untitled post',
+        categoryId: activeCategories[0].id,
+      })
+      navigate(`/journal/${post.id}`)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not create a new post.')
+      setIsCreating(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -99,11 +114,8 @@ export function JournalPage() {
             <Button variant="outline" onClick={() => setIsCategoriesOpen(true)}>
               Manage categories
             </Button>
-            <Button
-              onClick={() => setIsCreateOpen(true)}
-              disabled={activeCategories.length === 0}
-            >
-              New post
+            <Button onClick={() => void handleCreate()} disabled={activeCategories.length === 0 || isCreating}>
+              {isCreating ? 'Creating…' : 'New post'}
             </Button>
           </div>
         }
@@ -231,13 +243,6 @@ export function JournalPage() {
         isOpen={isCategoriesOpen}
         onClose={() => setIsCategoriesOpen(false)}
         onChanged={handleCategoriesChanged}
-      />
-
-      <JournalPostCreateDrawer
-        isOpen={isCreateOpen}
-        categories={activeCategories}
-        defaultCategoryId={activeCategories[0]?.id ?? null}
-        onClose={() => setIsCreateOpen(false)}
       />
     </div>
   )

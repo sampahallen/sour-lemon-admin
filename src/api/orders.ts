@@ -14,6 +14,8 @@ export interface OrderSummary {
   orderNumber: string
   status: OrderStatus
   paymentStatus: PaymentStatus
+  paymentDisplayStatus: PaymentDisplayStatus
+  paymentGroup: PaymentGroup
   fulfillmentType: FulfillmentType
   customerName: string
   phoneNumber: string
@@ -24,11 +26,33 @@ export interface OrderSummary {
   currency: string
   placedAt: string | null
   createdAt: string
+  availableActions: OrderAction[]
 }
+
+export type OrderAction =
+  | 'confirm_payment'
+  | 'collect_cash'
+  | 'start_preparing'
+  | 'mark_ready'
+  | 'dispatch'
+  | 'complete'
+  | 'cancel'
+
+export type PaymentDisplayStatus =
+  | 'waiting_for_payment'
+  | 'needs_review'
+  | 'confirmed'
+  | 'cash_due'
+  | 'cash_collected'
+  | 'failed'
+  | 'refunded'
+
+export type PaymentGroup = 'pending' | 'needs_attention' | 'paid' | 'refunded'
 
 export interface OrderItemSummary {
   id: string
   productName: string
+  productImageUrl: string | null
   quantity: number
   unitPrice: string
   lineTotal: string
@@ -42,11 +66,17 @@ export interface OrderStatusHistoryEntry {
 }
 
 export interface OrderPaymentSummary {
+  id: string
   provider: PaymentProvider
   method: PaymentMethod
   status: PaymentStatus
   checkoutUrl: string | null
   amount: string
+  displayStatus: PaymentDisplayStatus
+  requiresManualConfirmation: boolean
+  adminConfirmedAt: string | null
+  adminConfirmedByUserId: string | null
+  paidAt: string | null
 }
 
 export interface OrderDetail extends OrderSummary {
@@ -57,6 +87,7 @@ export interface OrderDetail extends OrderSummary {
   items: OrderItemSummary[]
   statusHistory: OrderStatusHistoryEntry[]
   payment: OrderPaymentSummary | null
+  allowedTransitions: OrderStatus[]
 }
 
 export interface OrderGroup {
@@ -64,9 +95,32 @@ export interface OrderGroup {
   orders: OrderSummary[]
 }
 
+export interface WorkspaceOrder extends OrderSummary {
+  items: { productName: string; quantity: number }[]
+}
+
+export interface OrderWorkspace {
+  queues: {
+    payment: WorkspaceOrder[]
+    received: WorkspaceOrder[]
+    preparing: WorkspaceOrder[]
+    ready: WorkspaceOrder[]
+    delivery: WorkspaceOrder[]
+  }
+  counts: Record<keyof OrderWorkspace['queues'], number>
+  generatedAt: string
+}
+
 export interface ListOrdersParams {
+  scope?: 'all' | 'active' | 'history'
   status?: OrderStatus
+  paymentStatus?: PaymentStatus
+  paymentGroup?: PaymentGroup
+  fulfillmentType?: FulfillmentType
   deliveryAreaId?: string
+  search?: string
+  dateFrom?: string
+  dateTo?: string
   page?: number
   limit?: number
 }
@@ -96,6 +150,10 @@ export function listOrdersGroupedByDeliveryArea(token: string, status?: OrderSta
   )
 }
 
+export function getOrderWorkspace(token: string) {
+  return apiRequest<OrderWorkspace>('/api/orders/workspace', token)
+}
+
 export function getOrder(token: string, id: string) {
   return apiRequest<{ order: OrderDetail }>(`/api/orders/${id}`, token)
 }
@@ -107,10 +165,10 @@ export function updateOrderStatus(token: string, id: string, toStatus: OrderStat
   })
 }
 
-export function sendOrderDeliveryMessage(token: string, id: string, deliveryTime: string) {
-  return apiRequest<{ whatsappLink: string; message: string }>(
-    `/api/orders/${id}/send-delivery-message`,
-    token,
-    { method: 'POST', json: { deliveryTime } },
-  )
+export function confirmOrderPayment(token: string, id: string) {
+  return apiRequest<{ order: OrderDetail }>(`/api/orders/${id}/confirm-payment`, token, { method: 'POST' })
+}
+
+export function collectOrderCash(token: string, id: string) {
+  return apiRequest<{ order: OrderDetail }>(`/api/orders/${id}/collect-cash`, token, { method: 'POST' })
 }

@@ -14,7 +14,7 @@ import { AuthProvider } from './auth/AuthProvider'
 import { router } from './routes/router'
 
 async function enableMocking() {
-  if (import.meta.env.MODE !== 'development') return
+  if (import.meta.env.MODE !== 'development' || import.meta.env.VITE_ENABLE_MOCKS !== 'true') return
   const { worker } = await import('./mocks/browser')
   return worker.start({ onUnhandledRequest: 'bypass' })
 }

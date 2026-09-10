@@ -18,7 +18,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { JournalBodyEditor } from './JournalBodyEditor'
-import { JournalImagesPanel } from './JournalImagesPanel'
+import { JournalCoverPhoto } from './JournalCoverPhoto'
 import { journalPublishTiming, journalStatusTone } from './journalStatus'
 
 const inputClasses =
@@ -32,7 +32,9 @@ interface EditorForm {
   blocks: JournalBlock[]
 }
 
-type ConfirmAction = 'publish' | 'archive' | 'delete' | null
+type ConfirmAction = 'delete' | null
+
+const AUTOSAVE_DELAY_MS = 1500
 
 const formFromPost = (post: JournalPostDetail): EditorForm => ({
   title: post.title,
@@ -80,6 +82,7 @@ export function JournalPostEditorPage() {
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false)
 
   const isDirty = useMemo(
     () => form !== null && savedForm !== null && JSON.stringify(form) !== JSON.stringify(savedForm),
@@ -135,6 +138,13 @@ export function JournalPostEditorPage() {
     return () => window.removeEventListener('beforeunload', warnBeforeUnload)
   }, [isDirty])
 
+  useEffect(() => {
+    if (!isDirty || isTransitioning) return
+    const timeout = setTimeout(() => void save(), AUTOSAVE_DELAY_MS)
+    return () => clearTimeout(timeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, isDirty, isTransitioning])
+
   const save = async () => {
     if (!post || !form) return false
     if (!form.title.trim() || !form.slug.trim() || !form.categoryId) {
@@ -142,19 +152,22 @@ export function JournalPostEditorPage() {
       return false
     }
 
+    const snapshot = form
     setIsSaving(true)
     setError(null)
-    setNotice(null)
     try {
-      await updateJournalPost(token, post.id, {
-        title: form.title.trim(),
-        slug: form.slug.trim(),
-        categoryId: form.categoryId,
-        excerpt: form.excerpt.trim() || null,
-        body: { version: 1, blocks: form.blocks },
+      const { post: updated } = await updateJournalPost(token, post.id, {
+        title: snapshot.title.trim(),
+        slug: snapshot.slug.trim(),
+        categoryId: snapshot.categoryId,
+        excerpt: snapshot.excerpt.trim() || null,
+        body: { version: 1, blocks: snapshot.blocks },
       })
-      await loadPost()
-      setNotice('Draft saved.')
+      // Merge only the fields the update endpoint returns, so an autosave that
+      // completes while the user keeps typing can't clobber their newer keystrokes
+      // by resetting `form` (unlike loadPost(), which refetches the full detail).
+      setPost((current) => (current ? { ...current, ...updated } : current))
+      setSavedForm(snapshot)
       return true
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not save this post.')
@@ -181,7 +194,6 @@ export function JournalPostEditorPage() {
 
   const runTransition = async (action: 'publish' | 'archive') => {
     if (!post) return
-    setConfirmAction(null)
     setIsTransitioning(true)
     setError(null)
     setNotice(null)
@@ -219,6 +231,7 @@ export function JournalPostEditorPage() {
       await scheduleJournalPost(token, post.id, date.toISOString())
       await loadPost()
       setNotice('Post scheduled.')
+      setIsScheduleOpen(false)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Could not schedule this post.')
     } finally {
@@ -263,16 +276,29 @@ export function JournalPostEditorPage() {
   const canPublishOrSchedule = post.status === 'draft' || post.status === 'scheduled'
   const busy = isSaving || isTransitioning
 
+  const cover = post.images.find((image) => image.role === 'cover') ?? null
+
   return (
     <div>
       <PageHeader
         title="Edit Journal post"
         action={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" onClick={goBack}>Back</Button>
-            <Button disabled={!isDirty || busy} onClick={() => void save()}>
-              {isSaving ? 'Saving…' : isDirty ? 'Save changes' : 'Saved'}
-            </Button>
+            {canPublishOrSchedule ? (
+              <>
+                <Button variant="outline" disabled={busy} onClick={() => setIsScheduleOpen((open) => !open)}>
+                  {post.status === 'scheduled' ? 'Reschedule' : 'Schedule…'}
+                </Button>
+                <Button disabled={busy} onClick={() => void runTransition('publish')}>
+                  {isTransitioning ? 'Publishing…' : 'Publish now'}
+                </Button>
+              </>
+            ) : post.status === 'published' ? (
+              <Button variant="outline" disabled={busy} onClick={() => void runTransition('archive')}>
+                {isTransitioning ? 'Archiving…' : 'Archive post'}
+              </Button>
+            ) : null}
           </div>
         }
       />
@@ -280,140 +306,107 @@ export function JournalPostEditorPage() {
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <StatusBadge label={post.status} tone={journalStatusTone(post.status)} />
         <span className="text-sm text-cocoa/55">{journalPublishTiming(post)}</span>
-        {isDirty ? <span className="text-sm font-semibold text-flame">Unsaved changes</span> : null}
+        <span className="text-sm font-semibold text-cocoa/55">
+          {isSaving ? 'Saving…' : isDirty ? 'Unsaved changes' : 'All changes saved'}
+        </span>
       </div>
 
       {error ? <p className="mb-4 rounded-lg bg-flame/10 px-3 py-2 text-sm font-semibold text-flame">{error}</p> : null}
       {notice ? <p className="mb-4 rounded-lg bg-olive/10 px-3 py-2 text-sm font-semibold text-olive">{notice}</p> : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="flex flex-col gap-6">
-          <section className="rounded-xl border border-cocoa/10 bg-white p-5">
-            <h2 className="mb-4 font-display text-lg font-bold">Post details</h2>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="flex flex-col gap-1 text-sm font-semibold md:col-span-2">
-                Title
-                <input
-                  value={form.title}
-                  maxLength={200}
-                  className={inputClasses}
-                  onChange={(event) => setForm({ ...form, title: event.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm font-semibold">
-                Slug
-                <input
-                  value={form.slug}
-                  maxLength={220}
-                  className={inputClasses}
-                  onChange={(event) => setForm({ ...form, slug: event.target.value })}
-                />
-                <span className="font-normal text-cocoa/45">Lowercase letters, numbers, and hyphens only.</span>
-              </label>
-              <label className="flex flex-col gap-1 text-sm font-semibold">
-                Category
-                <select
-                  value={form.categoryId}
-                  className={inputClasses}
-                  onChange={(event) => setForm({ ...form, categoryId: event.target.value })}
-                >
-                  {selectableCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}{category.isActive ? '' : ' (inactive)'}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex flex-col gap-1 text-sm font-semibold md:col-span-2">
-                Excerpt
-                <textarea
-                  value={form.excerpt}
-                  maxLength={2000}
-                  rows={3}
-                  className={inputClasses}
-                  placeholder="A short introduction shown on Journal cards."
-                  onChange={(event) => setForm({ ...form, excerpt: event.target.value })}
-                />
-              </label>
-            </div>
-          </section>
-
-          <section className="rounded-xl border border-cocoa/10 bg-cream/50 p-5">
-            <h2 className="mb-4 font-display text-lg font-bold">Story content</h2>
-            <JournalBodyEditor
-              blocks={form.blocks}
-              bodyImages={post.images.filter((image) => image.role === 'body')}
-              onChange={(blocks) => setForm({ ...form, blocks })}
+      {isScheduleOpen ? (
+        <div className="mb-5 flex flex-wrap items-end gap-3 rounded-xl border border-cocoa/10 bg-white p-4">
+          <label className="flex min-w-64 flex-col gap-1 text-sm font-semibold">
+            Schedule date and time
+            <input
+              type="datetime-local"
+              value={scheduledFor}
+              className={inputClasses}
+              onChange={(event) => setScheduledFor(event.target.value)}
             />
-          </section>
+          </label>
+          <Button disabled={busy || !scheduledFor} onClick={() => void handleSchedule()}>
+            {post.status === 'scheduled' ? 'Update schedule' : 'Confirm schedule'}
+          </Button>
+          <button type="button" className="text-sm font-semibold text-cocoa/60" onClick={() => setIsScheduleOpen(false)}>
+            Cancel
+          </button>
+        </div>
+      ) : null}
 
-          <section className="rounded-xl border border-cocoa/10 bg-white p-5">
-            <h2 className="mb-4 font-display text-lg font-bold">Publishing</h2>
-            {canPublishOrSchedule ? (
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-wrap items-end gap-3">
-                  <label className="flex min-w-64 flex-col gap-1 text-sm font-semibold">
-                    Schedule date and time
-                    <input
-                      type="datetime-local"
-                      value={scheduledFor}
-                      className={inputClasses}
-                      onChange={(event) => setScheduledFor(event.target.value)}
-                    />
-                  </label>
-                  <Button variant="outline" disabled={busy || !scheduledFor} onClick={() => void handleSchedule()}>
-                    {post.status === 'scheduled' ? 'Reschedule' : 'Schedule'}
-                  </Button>
-                  <Button disabled={busy} onClick={() => setConfirmAction('publish')}>Publish now</Button>
-                </div>
-                <p className="text-sm text-cocoa/55">Publishing requires an active category, excerpt, and story content.</p>
-              </div>
-            ) : post.status === 'published' ? (
-              <Button variant="outline" disabled={busy} onClick={() => setConfirmAction('archive')}>Archive post</Button>
-            ) : (
-              <p className="text-sm text-cocoa/55">This post is archived and remains available for editing.</p>
-            )}
-          </section>
+      <div className="mx-auto max-w-3xl rounded-3xl border border-cocoa/10 bg-white p-6 shadow-sm sm:p-10">
+        <JournalCoverPhoto token={token} postId={post.id} cover={cover} onChanged={() => loadPost(true)} />
 
-          <section className="rounded-xl border border-flame/20 bg-flame/5 p-5">
-            <h2 className="font-display text-lg font-bold text-flame">Delete post</h2>
-            <p className="mb-4 mt-1 text-sm text-cocoa/60">This removes the post and its stored Journal images.</p>
-            <Button variant="outline" disabled={busy} onClick={() => setConfirmAction('delete')}>Delete post</Button>
-          </section>
+        <input
+          value={form.title}
+          maxLength={200}
+          placeholder="Untitled post"
+          className="w-full bg-transparent font-display text-4xl font-bold text-cocoa outline-none placeholder:text-cocoa/25"
+          onChange={(event) => setForm({ ...form, title: event.target.value })}
+        />
+
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+          <select
+            value={form.categoryId}
+            className="rounded-full border border-cocoa/20 bg-cream px-3 py-1 font-semibold text-cocoa/70 outline-none focus:border-flame"
+            onChange={(event) => setForm({ ...form, categoryId: event.target.value })}
+          >
+            {selectableCategories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+                {category.isActive ? '' : ' (inactive)'}
+              </option>
+            ))}
+          </select>
+
+          <label className="flex items-center gap-1 text-cocoa/45">
+            <span>/journal/</span>
+            <input
+              value={form.slug}
+              maxLength={220}
+              className="rounded bg-transparent px-0.5 font-semibold text-cocoa/70 outline-none focus:bg-cocoa/5"
+              onChange={(event) => setForm({ ...form, slug: event.target.value })}
+            />
+          </label>
         </div>
 
-        <aside className="self-start rounded-xl border border-cocoa/10 bg-white p-5 xl:sticky xl:top-6">
-          <h2 className="mb-4 font-display text-lg font-bold">Photos</h2>
-          <JournalImagesPanel
+        <textarea
+          value={form.excerpt}
+          maxLength={2000}
+          rows={2}
+          placeholder="Add a short excerpt for the Journal card…"
+          className="mt-4 w-full resize-none bg-transparent text-lg leading-relaxed text-cocoa/60 outline-none placeholder:text-cocoa/35"
+          onChange={(event) => setForm({ ...form, excerpt: event.target.value })}
+        />
+
+        <div className="mt-8 border-t border-cocoa/10 pt-8">
+          <JournalBodyEditor
+            blocks={form.blocks}
+            bodyImages={post.images.filter((image) => image.role === 'body')}
             token={token}
-            post={post}
-            onChanged={() => loadPost(true)}
-            onInsertBlock={(image) => {
-              setForm({
-                ...form,
-                blocks: [...form.blocks, { type: 'image', imageId: image.id, caption: image.caption ?? '' }],
-              })
-            }}
+            postId={post.id}
+            onChange={(blocks) => setForm({ ...form, blocks })}
+            onImagesChanged={() => loadPost(true)}
           />
-        </aside>
+        </div>
       </div>
 
-      <ConfirmDialog
-        isOpen={confirmAction === 'publish'}
-        title="Publish Journal post"
-        message="Publish this post now? It will become visible in the customer Journal."
-        confirmLabel="Publish"
-        onCancel={() => setConfirmAction(null)}
-        onConfirm={() => void runTransition('publish')}
-      />
-      <ConfirmDialog
-        isOpen={confirmAction === 'archive'}
-        title="Archive Journal post"
-        message="Archive this post? It will no longer appear in the customer Journal."
-        confirmLabel="Archive"
-        onCancel={() => setConfirmAction(null)}
-        onConfirm={() => void runTransition('archive')}
-      />
+      <div className="mx-auto mt-6 flex max-w-3xl items-center justify-between gap-4 text-sm">
+        <p className="text-cocoa/50">
+          {post.status === 'archived'
+            ? 'This post is archived and remains available for editing.'
+            : 'Publishing requires an active category, excerpt, and story content.'}
+        </p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setConfirmAction('delete')}
+          className="shrink-0 font-semibold text-flame/70 hover:text-flame disabled:opacity-40"
+        >
+          Delete this post
+        </button>
+      </div>
+
       <ConfirmDialog
         isOpen={confirmAction === 'delete'}
         title="Delete Journal post"

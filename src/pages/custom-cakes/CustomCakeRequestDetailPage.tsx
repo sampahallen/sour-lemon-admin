@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -9,11 +9,11 @@ import {
   getCustomCakeRequest,
   quoteCustomCakeRequest,
   rejectCustomCakeRequest,
-  sendCustomCakePaymentLink,
   type CustomCakeRequestDetail,
 } from '@/api/customCakeRequests'
 import { customCakeStatusTone } from './customCakeStatus'
-import { buildCustomCakeQuoteMessage, buildWhatsAppLink } from '@/utils/whatsapp'
+import { getCustomCakeWhatsAppOptions } from '@/api/whatsapp'
+import { WhatsAppComposer } from '@/components/whatsapp/WhatsAppComposer'
 
 export function CustomCakeRequestDetailPage() {
   const { requestId } = useParams()
@@ -24,6 +24,7 @@ export function CustomCakeRequestDetailPage() {
   const [request, setRequest] = useState<CustomCakeRequestDetail | null>(null)
   const [quotedAmount, setQuotedAmount] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [whatsappTemplateId, setWhatsappTemplateId] = useState<string | null>(null)
 
   const load = async () => {
     if (!requestId) return
@@ -36,15 +37,21 @@ export function CustomCakeRequestDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestId])
 
+  const loadWhatsAppOptions = useCallback(() => {
+    if (!requestId) return Promise.reject(new Error('Custom cake request not found.'))
+    return getCustomCakeWhatsAppOptions(token, requestId)
+  }, [requestId, token])
+
   if (!request) return <p className="text-cocoa/60">Loading…</p>
 
   const handleQuote = async () => {
     if (!quotedAmount) return
     setIsSaving(true)
     try {
-      await quoteCustomCakeRequest(token, request.id, { quotedAmount })
+      const { request: updatedRequest } = await quoteCustomCakeRequest(token, request.id, { quotedAmount })
+      setRequest(updatedRequest)
       setQuotedAmount('')
-      await load()
+      setWhatsappTemplateId('quote_ready')
     } finally {
       setIsSaving(false)
     }
@@ -68,16 +75,6 @@ export function CustomCakeRequestDetailPage() {
     } finally {
       setIsSaving(false)
     }
-  }
-
-  // Build the link + open it synchronously within the click handler (not after
-  // an awaited request) so the browser doesn't block the popup.
-  const handleSendPaymentLink = () => {
-    const paymentLink = `https://pay.sourlemon.example/checkout/${request.id}`
-    const message = buildCustomCakeQuoteMessage(request, paymentLink)
-    const link = buildWhatsAppLink(request.whatsappNumber ?? request.phoneNumber, message)
-    window.open(link, '_blank', 'noreferrer')
-    void sendCustomCakePaymentLink(token, request.id)
   }
 
   return (
@@ -128,16 +125,14 @@ export function CustomCakeRequestDetailPage() {
                 className="rounded-lg border border-cocoa/20 px-3 py-2 text-sm"
               />
               <Button size="md" disabled={!quotedAmount || isSaving} onClick={handleQuote}>
-                {request.quotedAmount ? 'Update quote' : 'Send quote'}
+                {request.quotedAmount ? 'Update quote' : 'Save quote'}
               </Button>
             </div>
           ) : null}
 
-          {request.status === 'quoted' || request.status === 'awaiting_payment' ? (
-            <Button className="mb-3 w-full" onClick={handleSendPaymentLink}>
-              Send payment link via WhatsApp
-            </Button>
-          ) : null}
+          <Button className="mb-4 w-full" variant="outline" accent="olive" onClick={() => setWhatsappTemplateId('')}>
+            Message customer on WhatsApp
+          </Button>
 
           {['submitted', 'quoted'].includes(request.status) ? (
             <div className="flex gap-3">
@@ -151,6 +146,15 @@ export function CustomCakeRequestDetailPage() {
           ) : null}
         </section>
       </div>
+
+      {whatsappTemplateId !== null ? (
+        <WhatsAppComposer
+          title={`Message ${request.customerName}`}
+          preferredTemplateId={whatsappTemplateId || undefined}
+          loadOptions={loadWhatsAppOptions}
+          onClose={() => setWhatsappTemplateId(null)}
+        />
+      ) : null}
     </div>
   )
 }

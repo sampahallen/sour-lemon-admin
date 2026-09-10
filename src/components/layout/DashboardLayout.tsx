@@ -48,7 +48,7 @@ export function DashboardLayout() {
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-cocoa/10 bg-white p-4 transition-transform md:static md:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-y-auto border-r border-cocoa/10 bg-white p-4 transition-transform md:translate-x-0',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -90,7 +90,7 @@ export function DashboardLayout() {
         </button>
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col md:pl-0">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col md:pl-64">
         <header className="flex items-center justify-between border-b border-cocoa/10 bg-white px-4 py-3 md:px-8">
           <button
             aria-label="Open menu"

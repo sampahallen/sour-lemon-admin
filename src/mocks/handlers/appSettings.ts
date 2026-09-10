@@ -6,15 +6,24 @@ export const appSettingHandlers = [
     return HttpResponse.json({ settings: appSettings })
   }),
 
-  http.patch('*/api/app-settings/:key', async ({ request, params }) => {
-    const setting = appSettings.find((item) => item.key === params.key)
-    if (!setting) return new HttpResponse(null, { status: 404 })
+  http.patch('*/api/app-settings', async ({ request }) => {
+    const { updates } = (await request.json()) as {
+      updates: Array<{ key: string; value: unknown }>
+    }
+    const keys = new Set(updates.map((update) => update.key))
+    const hasInvalidUpdate = keys.size !== updates.length
+      || updates.some((update) => !appSettings.some((setting) => setting.key === update.key))
+    if (hasInvalidUpdate) {
+      return HttpResponse.json({ error: 'Request validation failed' }, { status: 400 })
+    }
 
-    const { value, description } = (await request.json()) as { value: unknown; description?: string }
-    setting.value = value
-    if (description !== undefined) setting.description = description
-    setting.updatedAt = new Date().toISOString()
+    const updatedAt = new Date().toISOString()
+    for (const update of updates) {
+      const setting = appSettings.find((item) => item.key === update.key)!
+      setting.value = update.value as never
+      setting.updatedAt = updatedAt
+    }
 
-    return HttpResponse.json({ setting })
+    return HttpResponse.json({ settings: appSettings })
   }),
 ]

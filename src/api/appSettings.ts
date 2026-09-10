@@ -10,9 +10,23 @@ export const APP_SETTING_KEYS = {
   menuSchedulingEnabled: 'menu_scheduling_enabled',
 } as const
 
-export interface AppSetting<TValue = unknown> {
-  key: string
-  value: TValue
+export type AppSettingKey = (typeof APP_SETTING_KEYS)[keyof typeof APP_SETTING_KEYS]
+
+export interface AppSettingValueMap {
+  business_whatsapp_number: string | null
+  pickup_location: string | null
+  manual_payment_review: boolean
+  delivery_fee_mode: DeliveryFeeMode
+  menu_scheduling_enabled: boolean
+}
+
+export type AppSettingUpdate = {
+  [K in AppSettingKey]: { key: K; value: AppSettingValueMap[K] }
+}[AppSettingKey]
+
+export interface AppSetting {
+  key: AppSettingKey
+  value: AppSettingValueMap[AppSettingKey]
   description: string | null
   updatedAt: string
 }
@@ -21,29 +35,9 @@ export function listAppSettings(token: string) {
   return apiRequest<{ settings: AppSetting[] }>('/api/app-settings', token)
 }
 
-function updateSetting<TValue>(token: string, key: string, value: TValue) {
-  return apiRequest<{ setting: AppSetting<TValue> }>(`/api/app-settings/${key}`, token, {
+export function updateAppSettings(token: string, updates: AppSettingUpdate[]) {
+  return apiRequest<{ settings: AppSetting[] }>('/api/app-settings', token, {
     method: 'PATCH',
-    json: { value },
+    json: { updates },
   })
-}
-
-export function updateBusinessWhatsappNumber(token: string, phoneNumber: string | null) {
-  return updateSetting(token, APP_SETTING_KEYS.businessWhatsappNumber, phoneNumber)
-}
-
-export function updatePickupLocation(token: string, location: string | null) {
-  return updateSetting(token, APP_SETTING_KEYS.pickupLocation, location)
-}
-
-export function updateManualPaymentReview(token: string, enabled: boolean) {
-  return updateSetting(token, APP_SETTING_KEYS.manualPaymentReview, enabled)
-}
-
-export function updateDeliveryFeeMode(token: string, mode: DeliveryFeeMode) {
-  return updateSetting(token, APP_SETTING_KEYS.deliveryFeeMode, mode)
-}
-
-export function updateMenuSchedulingEnabled(token: string, enabled: boolean) {
-  return updateSetting(token, APP_SETTING_KEYS.menuSchedulingEnabled, enabled)
 }
