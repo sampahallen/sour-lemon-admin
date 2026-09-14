@@ -30,10 +30,16 @@ export function DashboardLayout() {
   const { session, signOut } = useAuth()
   const navigate = useNavigate()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [signOutError, setSignOutError] = useState<string | null>(null)
 
-  const handleSignOut = () => {
-    void signOut()
-    navigate('/signin', { replace: true })
+  const handleSignOut = async () => {
+    setSignOutError(null)
+    try {
+      await signOut()
+      navigate('/signin', { replace: true })
+    } catch {
+      setSignOutError('Could not sign out while disconnected. Please try again.')
+    }
   }
 
   return (
@@ -82,8 +88,9 @@ export function DashboardLayout() {
             </section>
           ))}
         </nav>
+        {signOutError ? <p role="alert" className="px-3 text-xs text-flame">{signOutError}</p> : null}
         <button
-          onClick={handleSignOut}
+          onClick={() => void handleSignOut()}
           className="mt-4 rounded-lg px-3 py-2 text-left font-semibold text-cocoa/70 hover:bg-cocoa/5"
         >
           Sign out

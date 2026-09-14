@@ -14,6 +14,7 @@ import {
 import { customCakeStatusTone } from './customCakeStatus'
 import { getCustomCakeWhatsAppOptions } from '@/api/whatsapp'
 import { WhatsAppComposer } from '@/components/whatsapp/WhatsAppComposer'
+import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 
 export function CustomCakeRequestDetailPage() {
   const { requestId } = useParams()
@@ -25,6 +26,15 @@ export function CustomCakeRequestDetailPage() {
   const [quotedAmount, setQuotedAmount] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [whatsappTemplateId, setWhatsappTemplateId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const validateQuote = (): FieldErrors<'quotedAmount'> => {
+    if (!quotedAmount.trim()) return { quotedAmount: 'Enter a quote amount.' }
+    if (!/^\d+(?:\.\d{1,2})?$/.test(quotedAmount.trim()) || Number(quotedAmount) < 0.01 || Number(quotedAmount) > 999_999_999.99) {
+      return { quotedAmount: 'Enter an amount above zero with up to two decimal places.' }
+    }
+    return {}
+  }
+  const validation = useFormValidation<'quotedAmount'>('cake-quote', validateQuote)
 
   const load = async () => {
     if (!requestId) return
@@ -45,13 +55,19 @@ export function CustomCakeRequestDetailPage() {
   if (!request) return <p className="text-cocoa/60">Loading…</p>
 
   const handleQuote = async () => {
-    if (!quotedAmount) return
+    if (!validation.submit()) return
     setIsSaving(true)
+    setError(null)
     try {
       const { request: updatedRequest } = await quoteCustomCakeRequest(token, request.id, { quotedAmount })
       setRequest(updatedRequest)
       setQuotedAmount('')
+      validation.reset()
       setWhatsappTemplateId('quote_ready')
+    } catch (caught) {
+      if (!validation.server(caught, (path) => path === 'quotedAmount' ? 'quotedAmount' : undefined)) {
+        setError(caught instanceof Error ? caught.message : 'Could not save this quote.')
+      }
     } finally {
       setIsSaving(false)
     }
@@ -59,9 +75,12 @@ export function CustomCakeRequestDetailPage() {
 
   const handleReject = async () => {
     setIsSaving(true)
+    setError(null)
     try {
       await rejectCustomCakeRequest(token, request.id)
       await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not reject this request.')
     } finally {
       setIsSaving(false)
     }
@@ -69,9 +88,12 @@ export function CustomCakeRequestDetailPage() {
 
   const handleCancel = async () => {
     setIsSaving(true)
+    setError(null)
     try {
       await cancelCustomCakeRequest(token, request.id)
       await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not cancel this request.')
     } finally {
       setIsSaving(false)
     }
@@ -109,6 +131,7 @@ export function CustomCakeRequestDetailPage() {
 
         <section className="rounded-xl border border-cocoa/10 bg-white p-5">
           <h2 className="mb-3 font-display text-lg font-bold">Quote &amp; actions</h2>
+          {error ? <p role="alert" className="mb-3 text-sm text-flame">{error}</p> : null}
 
           {request.quotedAmount ? (
             <p className="mb-3 text-sm text-cocoa/70">
@@ -119,12 +142,15 @@ export function CustomCakeRequestDetailPage() {
           {['submitted', 'quoted'].includes(request.status) ? (
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <input
+                {...validation.props('quotedAmount')}
+                aria-label="Quote amount in Ghana cedis"
                 value={quotedAmount}
-                onChange={(event) => setQuotedAmount(event.target.value)}
+                onChange={(event) => { setQuotedAmount(event.target.value); validation.changed('quotedAmount') }}
                 placeholder="Quote amount (GHS)"
-                className="rounded-lg border border-cocoa/20 px-3 py-2 text-sm"
+                className={`rounded-lg border border-cocoa/20 px-3 py-2 text-sm ${validation.error('quotedAmount') ? 'border-flame bg-flame/5' : ''}`}
               />
-              <Button size="md" disabled={!quotedAmount || isSaving} onClick={handleQuote}>
+              {validation.error('quotedAmount') ? <span id="cake-quote-quotedAmount-error" className="text-xs text-flame">{validation.error('quotedAmount')}</span> : null}
+              <Button size="md" disabled={isSaving} onClick={handleQuote}>
                 {request.quotedAmount ? 'Update quote' : 'Save quote'}
               </Button>
             </div>

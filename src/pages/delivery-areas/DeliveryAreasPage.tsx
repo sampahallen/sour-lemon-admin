@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { DataTable } from '@/components/ui/DataTable'
@@ -66,6 +67,7 @@ export function DeliveryAreasPage() {
       )}
 
       <DeliveryAreaDrawer
+        key={editingArea === 'new' ? 'new' : editingArea?.id ?? 'closed'}
         area={editingArea}
         onClose={() => setEditingArea(null)}
         onSaved={async () => {
@@ -105,30 +107,36 @@ function DeliveryAreaDrawer({
   const isNew = area === 'new'
   const editing = isNew ? null : area
 
-  const [name, setName] = useState('')
-  const [deliveryFee, setDeliveryFee] = useState('')
-  const [isActive, setIsActive] = useState(true)
+  const [name, setName] = useState(editing?.name ?? '')
+  const [deliveryFee, setDeliveryFee] = useState(editing?.deliveryFee ?? '')
+  const [isActive, setIsActive] = useState(editing?.isActive ?? true)
   const [isSaving, setIsSaving] = useState(false)
-
-  useEffect(() => {
-    if (editing) {
-      setName(editing.name)
-      setDeliveryFee(editing.deliveryFee ?? '')
-      setIsActive(editing.isActive)
-    } else if (isNew) {
-      setName('')
-      setDeliveryFee('')
-      setIsActive(true)
+  const [error, setError] = useState<string | null>(null)
+  type AreaField = 'name' | 'deliveryFee'
+  const validate = (): FieldErrors<AreaField> => {
+    const errors: FieldErrors<AreaField> = {}
+    if (!name.trim()) errors.name = 'Enter an area name.'
+    else if (name.trim().length > 120) errors.name = 'Keep the name under 120 characters.'
+    if (deliveryFee.trim() && (!/^\d+(?:\.\d{1,2})?$/.test(deliveryFee.trim()) || Number(deliveryFee) > 9_999_999_999.99)) {
+      errors.deliveryFee = 'Enter a non-negative amount with up to two decimal places.'
     }
-  }, [area]) // eslint-disable-line react-hooks/exhaustive-deps
+    return errors
+  }
+  const validation = useFormValidation<AreaField>('delivery-area', validate)
 
   const handleSubmit = async () => {
+    if (!validation.submit()) return
     setIsSaving(true)
+    setError(null)
     try {
-      const input = { name, deliveryFee: deliveryFee || null, isActive }
+      const input = { name: name.trim(), deliveryFee: deliveryFee.trim() || null, isActive }
       if (editing) await updateDeliveryArea(token, editing.id, input)
       else await createDeliveryArea(token, input)
       onSaved()
+    } catch (caught) {
+      if (!validation.server(caught, (path) => (['name', 'deliveryFee'] as string[]).includes(path) ? path as AreaField : undefined)) {
+        setError(caught instanceof Error ? caught.message : 'Could not save this delivery area.')
+      }
     } finally {
       setIsSaving(false)
     }
@@ -137,24 +145,29 @@ function DeliveryAreaDrawer({
   return (
     <Drawer isOpen={area !== null} onClose={onClose} title={editing ? 'Edit delivery area' : 'Add delivery area'}>
       <div className="flex flex-col gap-4">
+        {error ? <p role="alert" className="rounded-lg bg-flame/10 px-3 py-2 text-sm text-flame">{error}</p> : null}
         <label className="flex flex-col gap-1 text-sm font-semibold">
           Name
           <input
+            {...validation.props('name')}
             value={name}
-            onChange={(event) => setName(event.target.value)}
-            className="rounded-lg border border-cocoa/20 px-3 py-2 font-normal outline-none focus:border-flame"
+            onChange={(event) => { setName(event.target.value); validation.changed('name') }}
+            className={`rounded-lg border border-cocoa/20 px-3 py-2 font-normal outline-none focus:border-flame ${validation.error('name') ? 'border-flame bg-flame/5' : ''}`}
             placeholder="e.g. East Legon"
           />
+          {validation.error('name') ? <span id="delivery-area-name-error" className="text-xs text-flame">{validation.error('name')}</span> : null}
         </label>
 
         <label className="flex flex-col gap-1 text-sm font-semibold">
           Delivery fee (GHS)
           <input
+            {...validation.props('deliveryFee')}
             value={deliveryFee}
-            onChange={(event) => setDeliveryFee(event.target.value)}
-            className="rounded-lg border border-cocoa/20 px-3 py-2 font-normal outline-none focus:border-flame"
+            onChange={(event) => { setDeliveryFee(event.target.value); validation.changed('deliveryFee') }}
+            className={`rounded-lg border border-cocoa/20 px-3 py-2 font-normal outline-none focus:border-flame ${validation.error('deliveryFee') ? 'border-flame bg-flame/5' : ''}`}
             placeholder="e.g. 25.00"
           />
+          {validation.error('deliveryFee') ? <span id="delivery-area-deliveryFee-error" className="text-xs text-flame">{validation.error('deliveryFee')}</span> : null}
         </label>
 
         <label className="flex items-center gap-2 text-sm font-semibold">
@@ -162,7 +175,7 @@ function DeliveryAreaDrawer({
           Active
         </label>
 
-        <Button disabled={!name || isSaving} onClick={handleSubmit} className="mt-2">
+        <Button disabled={isSaving} onClick={handleSubmit} className="mt-2">
           {isSaving ? 'Saving…' : 'Save'}
         </Button>
       </div>

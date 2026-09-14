@@ -175,6 +175,10 @@ export function JournalBodyEditor({
 
   const insertImage = async (file: File) => {
     setUploadError(null)
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setUploadError('Choose a JPEG, PNG, or WebP photo.')
+      return
+    }
     setIsUploadingImage(true)
     try {
       const { image } = await uploadJournalPostImage(token, postId, file, {
@@ -249,7 +253,7 @@ export function JournalBodyEditor({
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp"
           className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0]

@@ -69,6 +69,7 @@ export interface OrderPaymentSummary {
   id: string
   provider: PaymentProvider
   method: PaymentMethod
+  paymentName: string | null
   status: PaymentStatus
   checkoutUrl: string | null
   amount: string

@@ -16,6 +16,7 @@ import type { OrderStatus } from '@/api/types'
 import { useOrderUpdates } from '@/hooks/useOrderUpdates'
 import { getOrderWhatsAppOptions } from '@/api/whatsapp'
 import { WhatsAppComposer } from '@/components/whatsapp/WhatsAppComposer'
+import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 import {
   orderStatusLabel,
   orderStatusTone,
@@ -55,6 +56,9 @@ export function OrderDetailPage() {
   const [cancelReason, setCancelReason] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const validation = useFormValidation<'reason'>('order-detail-cancel', (): FieldErrors<'reason'> => (
+    !cancelReason.trim() ? { reason: 'Enter a cancellation reason.' } : {}
+  ))
 
   const load = useCallback(async (quiet = false) => {
     if (!orderId) return
@@ -122,7 +126,7 @@ export function OrderDetailPage() {
   }
 
   const confirmCancellation = async () => {
-    if (!cancelReason.trim()) return
+    if (!validation.submit()) return
     setBusyAction('cancel')
     setError(null)
     try {
@@ -130,9 +134,12 @@ export function OrderDetailPage() {
       setOrder(updated.order)
       setCancelOpen(false)
       setCancelReason('')
+      validation.reset()
       setNotice('Order cancelled.')
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not cancel this order.')
+      if (!validation.server(caught, (path) => path === 'note' ? 'reason' : undefined)) {
+        setError(caught instanceof Error ? caught.message : 'Could not cancel this order.')
+      }
     } finally {
       setBusyAction(null)
     }
@@ -337,6 +344,12 @@ export function OrderDetailPage() {
             <p className="mt-2 text-xs leading-relaxed text-cocoa/50">
               {order.payment ? `${order.payment.method.toUpperCase()} · ${formatMoney(order.payment.amount, order.currency)}` : 'No payment record'}
             </p>
+            {order.payment?.paymentName ? (
+              <div className="mt-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-violet-600">Name on payment</p>
+                <p className="mt-0.5 font-display text-base font-bold text-cocoa">{order.payment.paymentName}</p>
+              </div>
+            ) : null}
             {order.paymentDisplayStatus === 'needs_review' ? <p className="mt-1 text-xs font-semibold text-violet-700">Paystack verified this payment. It needs your confirmation.</p> : null}
             {order.paymentDisplayStatus === 'cash_due' ? <p className="mt-1 text-xs font-semibold text-amber-700">Record the cash when the customer collects.</p> : null}
             {order.paymentDisplayStatus === 'failed' ? <p className="mt-1 text-xs font-semibold text-flame">The online payment failed.</p> : null}
@@ -369,10 +382,11 @@ export function OrderDetailPage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-[var(--shadow-chunky)]">
             <h2 className="font-display text-xl font-bold">Cancel this order?</h2>
             {['confirmed', 'cash_collected'].includes(order.paymentDisplayStatus) ? <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">Payment is confirmed. This will not issue a refund.</p> : null}
-            <label className="mt-4 block text-sm font-semibold">Cancellation reason<textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} rows={3} maxLength={1000} className="mt-1 w-full rounded-lg border border-cocoa/20 px-3 py-2 font-normal" /></label>
+            <label className="mt-4 block text-sm font-semibold">Cancellation reason<textarea {...validation.props('reason')} value={cancelReason} onChange={(event) => { setCancelReason(event.target.value); validation.changed('reason') }} rows={3} maxLength={1000} className={`mt-1 w-full rounded-lg border border-cocoa/20 px-3 py-2 font-normal ${validation.error('reason') ? 'border-flame bg-flame/5' : ''}`} />{validation.error('reason') ? <span id="order-detail-cancel-reason-error" className="text-xs text-flame">{validation.error('reason')}</span> : null}</label>
+            {error ? <p role="alert" className="mt-2 text-sm text-flame">{error}</p> : null}
             <div className="mt-5 flex justify-end gap-3">
-              <button onClick={() => { setCancelOpen(false); setCancelReason('') }} className="rounded-full px-5 py-2 font-semibold text-cocoa/60">Keep order</button>
-              <button disabled={!cancelReason.trim() || busyAction === 'cancel'} onClick={() => void confirmCancellation()} className="rounded-full bg-flame px-5 py-2 font-bold text-cream disabled:opacity-50">Cancel order</button>
+              <button onClick={() => { setCancelOpen(false); setCancelReason(''); validation.reset() }} className="rounded-full px-5 py-2 font-semibold text-cocoa/60">Keep order</button>
+              <button disabled={busyAction === 'cancel'} onClick={() => void confirmCancellation()} className="rounded-full bg-flame px-5 py-2 font-bold text-cream disabled:opacity-50">Cancel order</button>
             </div>
           </div>
         </div>

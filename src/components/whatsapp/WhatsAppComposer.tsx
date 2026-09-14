@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { WhatsAppOptions } from '@/api/whatsapp'
 import { Button } from '@/components/ui/Button'
+import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 import { buildWhatsAppLink } from '@/utils/whatsapp'
 
 const MESSAGE_MAX_LENGTH = 2_000
@@ -81,17 +82,21 @@ export function WhatsAppComposer({
   const messageError = !trimmedMessage
     ? 'Write a message before opening WhatsApp.'
     : message.length > MESSAGE_MAX_LENGTH ? `Keep the message under ${MESSAGE_MAX_LENGTH.toLocaleString()} characters.` : null
+  const validation = useFormValidation<'message'>('whatsapp', (): FieldErrors<'message'> => (
+    messageError ? { message: messageError } : {}
+  ))
 
   const chooseTemplate = (templateId: string) => {
     const next = options?.templates.find((item) => item.id === templateId)
     if (!next) return
     setSelectedTemplateId(templateId)
     setMessage(next.message)
+    validation.reset()
     setError(null)
   }
 
   const openWhatsApp = () => {
-    if (!options || messageError) return
+    if (!options || !validation.submit()) return
     const popup = window.open(buildWhatsAppLink(options.recipient.number, trimmedMessage), '_blank')
     if (!popup) {
       setError('Allow pop-ups for this site, then try opening WhatsApp again.')
@@ -154,32 +159,32 @@ export function WhatsAppComposer({
                 <button
                   type="button"
                   disabled={!selectedTemplate}
-                  onClick={() => selectedTemplate && setMessage(selectedTemplate.message)}
+                  onClick={() => { if (selectedTemplate) { setMessage(selectedTemplate.message); validation.changed('message') } }}
                   className="text-xs font-semibold text-cocoa/45 hover:text-flame disabled:opacity-40"
                 >
                   Reset preset
                 </button>
               </div>
               <textarea
-                id="whatsapp-message"
+                {...validation.props('message')}
                 rows={8}
                 value={message}
                 onChange={(event) => {
                   setMessage(event.target.value)
+                  validation.changed('message')
                   setError(null)
                 }}
-                aria-invalid={Boolean(messageError)}
-                className="mt-1 w-full resize-y rounded-xl border border-cocoa/20 bg-white px-3 py-3 text-sm leading-relaxed outline-none focus:border-flame focus:ring-2 focus:ring-flame/15"
+                className={`mt-1 w-full resize-y rounded-xl border border-cocoa/20 bg-white px-3 py-3 text-sm leading-relaxed outline-none focus:border-flame focus:ring-2 focus:ring-flame/15 ${validation.error('message') ? 'border-flame bg-flame/5' : ''}`}
               />
               <div className="mt-1 flex justify-between gap-3 text-xs">
-                <span className={messageError ? 'text-flame' : 'text-cocoa/40'}>{messageError ?? 'You can edit this before opening WhatsApp.'}</span>
+                <span id="whatsapp-message-error" className={validation.error('message') ? 'text-flame' : 'text-cocoa/40'}>{validation.error('message') ?? 'You can edit this before opening WhatsApp.'}</span>
                 <span className={message.length > MESSAGE_MAX_LENGTH ? 'font-semibold text-flame' : 'text-cocoa/40'}>{message.length.toLocaleString()}/{MESSAGE_MAX_LENGTH.toLocaleString()}</span>
               </div>
               {error ? <p role="alert" className="mt-3 rounded-lg bg-flame/5 px-3 py-2 text-sm font-semibold text-flame">{error}</p> : null}
 
               <div className="mt-5 flex flex-wrap justify-end gap-3 border-t border-cocoa/10 pt-4">
                 <Button variant="outline" accent="cocoa" onClick={onClose}>Cancel</Button>
-                <Button disabled={Boolean(messageError)} onClick={openWhatsApp}>Open WhatsApp</Button>
+                <Button onClick={openWhatsApp}>Open WhatsApp</Button>
               </div>
               <p className="mt-3 text-center text-[11px] text-cocoa/35">You’ll review and press Send inside WhatsApp.</p>
             </>

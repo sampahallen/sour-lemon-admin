@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
 import { normalizePhoneNumber } from '@/utils/phoneNumber'
+import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 
 interface SettingsValues {
   whatsappNumber: string
@@ -68,6 +69,12 @@ export function SettingsPage() {
   const pickupError = values.pickupLocation.length > 500
     ? 'Keep the pickup location under 500 characters.'
     : null
+  type SettingsField = 'whatsappNumber' | 'pickupLocation'
+  const validate = (): FieldErrors<SettingsField> => ({
+    ...(whatsappError ? { whatsappNumber: whatsappError } : {}),
+    ...(pickupError ? { pickupLocation: pickupError } : {}),
+  })
+  const validation = useFormValidation<SettingsField>('settings', validate)
   const blocker = useBlocker(isDirty)
 
   useEffect(() => {
@@ -101,13 +108,14 @@ export function SettingsPage() {
 
   const setValue = <K extends keyof SettingsValues>(key: K, value: SettingsValues[K]) => {
     setValues((current) => ({ ...current, [key]: value }))
+    if (key === 'whatsappNumber' || key === 'pickupLocation') validation.changed(key)
     setSaveError(null)
     setSuccessMessage(null)
   }
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!isDirty || whatsappError || pickupError) return
+    if (!isDirty || !validation.submit()) return
 
     const updates: AppSettingUpdate[] = []
     if (values.whatsappNumber !== savedValues.whatsappNumber) {
@@ -134,9 +142,17 @@ export function SettingsPage() {
       const nextValues = toValues(settings)
       setValues(nextValues)
       setSavedValues(nextValues)
+      validation.reset()
       setSuccessMessage('Settings saved. New orders and customer handoffs will use these values.')
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Settings could not be saved.')
+      if (!validation.server(error, (path) => {
+        const index = Number(/^updates\.(\d+)\.value$/.exec(path)?.[1])
+        if (!Number.isInteger(index)) return undefined
+        const key = updates[index]?.key
+        if (key === APP_SETTING_KEYS.businessWhatsappNumber) return 'whatsappNumber'
+        if (key === APP_SETTING_KEYS.pickupLocation) return 'pickupLocation'
+        return undefined
+      })) setSaveError(error instanceof Error ? error.message : 'Settings could not be saved.')
     } finally {
       setIsSaving(false)
     }
@@ -160,36 +176,32 @@ export function SettingsPage() {
   return (
     <div className="pb-28">
       <PageHeader title="Settings" />
-      <form onSubmit={save} className="flex max-w-2xl flex-col gap-5">
+      <form noValidate onSubmit={save} className="flex max-w-2xl flex-col gap-5">
         <section className="rounded-xl border border-cocoa/10 bg-white p-5">
-          <label htmlFor="whatsapp-number" className="font-display text-lg font-bold">Business WhatsApp number</label>
+          <label htmlFor="settings-whatsappNumber" className="font-display text-lg font-bold">Business WhatsApp number</label>
           <p className="mb-3 mt-1 text-sm text-cocoa/70">Where customer order and delivery messages are sent.</p>
           <input
-            id="whatsapp-number"
+            {...validation.props('whatsappNumber')}
             value={values.whatsappNumber}
             onChange={(event) => setValue('whatsappNumber', event.target.value)}
             placeholder="+233 20 123 4567"
-            aria-invalid={Boolean(whatsappError)}
-            aria-describedby={whatsappError ? 'whatsapp-error' : undefined}
-            className={fieldClassName}
+            className={`${fieldClassName} ${validation.error('whatsappNumber') ? 'border-flame bg-flame/5' : ''}`}
           />
-          {whatsappError ? <p id="whatsapp-error" className="mt-2 text-sm text-flame">{whatsappError}</p> : null}
+          {validation.error('whatsappNumber') ? <p id="settings-whatsappNumber-error" className="mt-2 text-sm text-flame">{validation.error('whatsappNumber')}</p> : null}
         </section>
 
         <section className="rounded-xl border border-cocoa/10 bg-white p-5">
-          <label htmlFor="pickup-location" className="font-display text-lg font-bold">Pickup location</label>
+          <label htmlFor="settings-pickupLocation" className="font-display text-lg font-bold">Pickup location</label>
           <p className="mb-3 mt-1 text-sm text-cocoa/70">Shared with customers collecting an order or arranging their own rider.</p>
           <textarea
-            id="pickup-location"
+            {...validation.props('pickupLocation')}
             rows={3}
             value={values.pickupLocation}
             onChange={(event) => setValue('pickupLocation', event.target.value)}
             placeholder="e.g. 12 Volta Street, Osu"
-            aria-invalid={Boolean(pickupError)}
-            aria-describedby={pickupError ? 'pickup-error' : undefined}
-            className={`${fieldClassName} resize-y`}
+            className={`${fieldClassName} resize-y ${validation.error('pickupLocation') ? 'border-flame bg-flame/5' : ''}`}
           />
-          {pickupError ? <p id="pickup-error" className="mt-2 text-sm text-flame">{pickupError}</p> : null}
+          {validation.error('pickupLocation') ? <p id="settings-pickupLocation-error" className="mt-2 text-sm text-flame">{validation.error('pickupLocation')}</p> : null}
         </section>
 
         <section className="rounded-xl border border-cocoa/10 bg-white p-5">
@@ -238,7 +250,7 @@ export function SettingsPage() {
           {successMessage ? <p role="status" className="mb-3 text-sm font-semibold text-olive">{successMessage}</p> : null}
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm text-cocoa/65">{isDirty ? 'You have unsaved changes.' : 'Everything is up to date.'}</p>
-            <Button type="submit" disabled={!isDirty || Boolean(whatsappError) || Boolean(pickupError) || isSaving}>
+            <Button type="submit" disabled={!isDirty || isSaving}>
               {isSaving ? 'Saving…' : 'Save all changes'}
             </Button>
           </div>

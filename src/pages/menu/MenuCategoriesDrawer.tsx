@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Drawer } from '@/components/ui/Drawer'
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
+import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 
 const inputClasses =
   'w-full rounded-lg border border-cocoa/20 px-3 py-2 text-sm font-normal outline-none focus:border-flame'
@@ -36,9 +37,21 @@ export function MenuCategoriesDrawer({
   const [pendingDelete, setPendingDelete] = useState<Category | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  type CategoryField = 'name' | 'slug' | 'sortOrder'
+  const validate = (): FieldErrors<CategoryField> => {
+    const errors: FieldErrors<CategoryField> = {}
+    if (!name.trim()) errors.name = 'Enter a category name.'
+    else if (name.trim().length > 100) errors.name = 'Keep the name under 100 characters.'
+    if (slug.trim() && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug.trim())) errors.slug = 'Use lowercase letters, numbers, and single hyphens only.'
+    else if (slug.trim().length > 120) errors.slug = 'Keep the slug under 120 characters.'
+    if (!/^\d+$/.test(sortOrder) || Number(sortOrder) > 10_000) errors.sortOrder = 'Enter a whole number from 0 to 10,000.'
+    return errors
+  }
+  const validation = useFormValidation<CategoryField>('menu-category', validate)
 
   const startEdit = (category: Category | 'new') => {
     setError(null)
+    validation.reset()
     if (category === 'new') {
       setEditingId('new')
       setName('')
@@ -53,7 +66,7 @@ export function MenuCategoriesDrawer({
   }
 
   const save = async () => {
-    if (!siteSectionId || !name.trim()) return
+    if (!siteSectionId || !validation.submit()) return
     setIsSaving(true)
     setError(null)
     try {
@@ -61,14 +74,16 @@ export function MenuCategoriesDrawer({
         siteSectionId,
         name: name.trim(),
         ...(slug.trim() ? { slug: slug.trim() } : {}),
-        sortOrder: Number(sortOrder) || 0,
+        sortOrder: Number(sortOrder),
       }
       if (editingId && editingId !== 'new') await updateCategory(token, editingId, input)
       else await createCategory(token, input)
       setEditingId(null)
       await onChanged()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not save this category.')
+      if (!validation.server(caught, (path) => (['name', 'slug', 'sortOrder'] as string[]).includes(path) ? path as CategoryField : undefined)) {
+        setError(caught instanceof Error ? caught.message : 'Could not save this category.')
+      }
     } finally {
       setIsSaving(false)
     }
@@ -123,18 +138,21 @@ export function MenuCategoriesDrawer({
           <div className="flex flex-col gap-3 rounded-xl border border-cocoa/10 bg-white p-4">
             <label className="flex flex-col gap-1 text-sm font-semibold">
               Name
-              <input value={name} onChange={(event) => setName(event.target.value)} className={inputClasses} />
+              <input {...validation.props('name')} value={name} onChange={(event) => { setName(event.target.value); validation.changed('name') }} className={`${inputClasses} ${validation.error('name') ? 'border-flame bg-flame/5' : ''}`} />
+              {validation.error('name') ? <span id="menu-category-name-error" className="text-xs text-flame">{validation.error('name')}</span> : null}
             </label>
             <label className="flex flex-col gap-1 text-sm font-semibold">
               Slug {editingId === 'new' ? '(optional)' : ''}
-              <input value={slug} onChange={(event) => setSlug(event.target.value)} className={inputClasses} />
+              <input {...validation.props('slug')} value={slug} onChange={(event) => { setSlug(event.target.value); validation.changed('slug') }} className={`${inputClasses} ${validation.error('slug') ? 'border-flame bg-flame/5' : ''}`} />
+              {validation.error('slug') ? <span id="menu-category-slug-error" className="text-xs text-flame">{validation.error('slug')}</span> : null}
             </label>
             <label className="flex flex-col gap-1 text-sm font-semibold">
               Sort order
-              <input type="number" min="0" value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} className={inputClasses} />
+              <input {...validation.props('sortOrder')} type="number" min="0" value={sortOrder} onChange={(event) => { setSortOrder(event.target.value); validation.changed('sortOrder') }} className={`${inputClasses} ${validation.error('sortOrder') ? 'border-flame bg-flame/5' : ''}`} />
+              {validation.error('sortOrder') ? <span id="menu-category-sortOrder-error" className="text-xs text-flame">{validation.error('sortOrder')}</span> : null}
             </label>
             <div className="flex gap-2">
-              <Button disabled={!name.trim() || !siteSectionId || isSaving} onClick={() => void save()}>
+              <Button disabled={!siteSectionId || isSaving} onClick={() => void save()}>
                 {isSaving ? 'Saving…' : 'Save category'}
               </Button>
               <button className="text-sm font-semibold text-cocoa/60" onClick={() => setEditingId(null)}>Cancel</button>

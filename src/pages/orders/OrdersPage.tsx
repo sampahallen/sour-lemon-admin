@@ -21,6 +21,7 @@ import {
   type Pagination,
 } from '@/api/types'
 import { useOrderUpdates } from '@/hooks/useOrderUpdates'
+import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 import {
   orderStatusLabel,
   orderStatusTone,
@@ -109,6 +110,7 @@ const minutesSince = (iso: string) => Math.max(0, Math.floor((Date.now() - new D
 const formatAge = (minutes: number) => {
   if (minutes < 1) return 'just now'
   if (minutes < 60) return `${minutes}m ago`
+  if (minutes >= 24 * 60) return `${Math.floor(minutes / (24 * 60))}d ago`
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m ago`
 }
 
@@ -187,6 +189,9 @@ export function OrdersPage() {
   const [notice, setNotice] = useState<string | null>(null)
   const [cancelOrder, setCancelOrder] = useState<WorkspaceOrder | null>(null)
   const [cancelReason, setCancelReason] = useState('')
+  const validation = useFormValidation<'reason'>('orders-cancel', (): FieldErrors<'reason'> => (
+    !cancelReason.trim() ? { reason: 'Enter a cancellation reason.' } : {}
+  ))
   const [activeSearch, setActiveSearch] = useState('')
   const [, forceTick] = useState(0)
   const originalTitleRef = useRef(document.title)
@@ -289,7 +294,7 @@ export function OrdersPage() {
   }
 
   const confirmCancellation = async () => {
-    if (!cancelOrder || !cancelReason.trim()) return
+    if (!cancelOrder || !validation.submit()) return
     const key = `${cancelOrder.id}:cancel`
     setBusyAction(key)
     setError(null)
@@ -298,9 +303,12 @@ export function OrdersPage() {
       setNotice(`Order ${cancelOrder.orderNumber} cancelled.`)
       setCancelOrder(null)
       setCancelReason('')
+      validation.reset()
       await loadWorkspace(true)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not cancel this order.')
+      if (!validation.server(caught, (path) => path === 'note' ? 'reason' : undefined)) {
+        setError(caught instanceof Error ? caught.message : 'Could not cancel this order.')
+      }
     } finally {
       setBusyAction(null)
     }
@@ -520,11 +528,13 @@ export function OrdersPage() {
             ) : null}
             <label className="mt-4 block text-sm font-semibold">
               Cancellation reason
-              <textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} rows={3} maxLength={1000} className="mt-1 w-full rounded-lg border border-cocoa/20 px-3 py-2 font-normal" />
+              <textarea {...validation.props('reason')} value={cancelReason} onChange={(event) => { setCancelReason(event.target.value); validation.changed('reason') }} rows={3} maxLength={1000} className={`mt-1 w-full rounded-lg border border-cocoa/20 px-3 py-2 font-normal ${validation.error('reason') ? 'border-flame bg-flame/5' : ''}`} />
+              {validation.error('reason') ? <span id="orders-cancel-reason-error" className="text-xs text-flame">{validation.error('reason')}</span> : null}
             </label>
+            {error ? <p role="alert" className="mt-2 text-sm text-flame">{error}</p> : null}
             <div className="mt-5 flex justify-end gap-3">
-              <button type="button" onClick={() => { setCancelOrder(null); setCancelReason('') }} className="rounded-full px-5 py-2 font-semibold text-cocoa/60">Keep order</button>
-              <button type="button" disabled={!cancelReason.trim() || busyAction === `${cancelOrder.id}:cancel`} onClick={() => void confirmCancellation()} className="rounded-full bg-flame px-5 py-2 font-bold text-cream disabled:opacity-50">Cancel order</button>
+              <button type="button" onClick={() => { setCancelOrder(null); setCancelReason(''); validation.reset() }} className="rounded-full px-5 py-2 font-semibold text-cocoa/60">Keep order</button>
+              <button type="button" disabled={busyAction === `${cancelOrder.id}:cancel`} onClick={() => void confirmCancellation()} className="rounded-full bg-flame px-5 py-2 font-bold text-cream disabled:opacity-50">Cancel order</button>
             </div>
           </div>
         </div>

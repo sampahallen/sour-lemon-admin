@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/auth/authContext'
 import type { Category } from '@/api/categories'
 import {
@@ -12,24 +12,19 @@ import {
 } from '@/api/products'
 import { Button } from '@/components/ui/Button'
 import { Drawer } from '@/components/ui/Drawer'
+import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
+import { parseGhanaDateTime, toGhanaDateTime } from '@/utils/ghanaDateTime'
+import { AvailabilityDateTimePicker } from './AvailabilityDateTimePicker'
 
 const inputClasses =
   'w-full rounded-lg border border-cocoa/20 px-3 py-2 font-normal outline-none focus:border-flame'
 
-type ProductField = 'categoryId' | 'name' | 'slug' | 'price' | 'availableFrom' | 'availableUntil'
-type ProductFieldErrors = Partial<Record<ProductField, string>>
+type ProductField = 'categoryId' | 'name' | 'slug' | 'description' | 'price' | 'availableFrom' | 'availableUntil'
 
 interface PendingPhoto {
   id: string
   file: File
   previewUrl: string
-}
-
-const toLocalDateTime = (value: string | null) => {
-  if (!value) return ''
-  const date = new Date(value)
-  const offset = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
 }
 
 export function ProductDrawer({
@@ -58,6 +53,8 @@ export function ProductDrawer({
   const [isActive, setIsActive] = useState(true)
   const [availableFrom, setAvailableFrom] = useState('')
   const [availableUntil, setAvailableUntil] = useState('')
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false)
+  const [openCalendar, setOpenCalendar] = useState<'from' | 'until' | null>(null)
   const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([])
   const pendingPhotosRef = useRef<PendingPhoto[]>([])
   const photoInputRef = useRef<HTMLInputElement>(null)
@@ -66,27 +63,38 @@ export function ProductDrawer({
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [fieldErrors, setFieldErrors] = useState<ProductFieldErrors>({})
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  const validate = (): FieldErrors<ProductField> => {
+    const errors: FieldErrors<ProductField> = {}
+    const parsedPrice = Number(price)
+    if (!categoryId) errors.categoryId = 'Choose a category.'
+    if (!name.trim()) errors.name = 'Enter a product name.'
+    else if (name.trim().length > 160) errors.name = 'Keep the name under 160 characters.'
+    if (product && slug.trim() && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug.trim())) errors.slug = 'Use lowercase letters, numbers, and single hyphens only.'
+    else if (slug.trim().length > 180) errors.slug = 'Keep the slug under 180 characters.'
+    if (description.trim().length > 5_000) errors.description = 'Keep the description under 5,000 characters.'
+    if (!price.trim()) errors.price = 'Enter a price.'
+    else if (!Number.isFinite(parsedPrice) || parsedPrice < 0 || parsedPrice > 999_999_999.99) errors.price = 'Enter a valid non-negative price.'
+    const fromDate = availableFrom ? parseGhanaDateTime(availableFrom) : null
+    const untilDate = availableUntil ? parseGhanaDateTime(availableUntil) : null
+    if (availableFrom && !fromDate) errors.availableFrom = 'Choose a valid start date and time.'
+    if (availableUntil && !untilDate) errors.availableUntil = 'Choose a valid end date and time.'
+    else if (fromDate && untilDate && untilDate <= fromDate) errors.availableUntil = 'Must be later than the available-from date.'
+    return errors
+  }
+  const validation = useFormValidation<ProductField>('product', validate)
+  const resetValidation = validation.reset
 
-  const fieldInputClasses = (field: ProductField) => fieldErrors[field]
+  const fieldInputClasses = (field: ProductField) => validation.error(field)
     ? 'w-full rounded-lg border border-flame bg-flame/5 px-3 py-2 font-normal outline-none focus:border-flame'
     : inputClasses
-
-  const clearFieldError = (field: ProductField) => {
-    setFieldErrors((current) => {
-      if (!current[field]) return current
-      const next = { ...current }
-      delete next[field]
-      return next
-    })
-  }
 
   const replacePendingPhotos = (next: PendingPhoto[]) => {
     pendingPhotosRef.current = next
     setPendingPhotos(next)
   }
 
-  const applyProduct = (next: ProductDetail) => {
+  const applyProduct = useCallback((next: ProductDetail) => {
     setProduct(next)
     setCategoryId(next.categoryId)
     setName(next.name)
@@ -94,10 +102,12 @@ export function ProductDrawer({
     setDescription(next.description ?? '')
     setPrice(next.price)
     setIsActive(next.isActive)
-    setAvailableFrom(toLocalDateTime(next.availableFrom))
-    setAvailableUntil(toLocalDateTime(next.availableUntil))
-    setFieldErrors({})
-  }
+    setAvailableFrom(toGhanaDateTime(next.availableFrom))
+    setAvailableUntil(toGhanaDateTime(next.availableUntil))
+    setIsScheduleOpen(Boolean(next.availableFrom || next.availableUntil))
+    setOpenCalendar(null)
+    resetValidation()
+  }, [resetValidation])
 
   useEffect(() => {
     let active = true
@@ -116,7 +126,7 @@ export function ProductDrawer({
     return () => {
       active = false
     }
-  }, [productId, token])
+  }, [productId, token, applyProduct])
 
   useEffect(() => () => {
     pendingPhotosRef.current.forEach((photo) => URL.revokeObjectURL(photo.previewUrl))
@@ -131,32 +141,9 @@ export function ProductDrawer({
 
   const handleSubmit = async () => {
     const parsedPrice = Number(price)
-    const nextFieldErrors: ProductFieldErrors = {}
-    if (!categoryId) nextFieldErrors.categoryId = 'Choose a category.'
-    if (!name.trim()) nextFieldErrors.name = 'Enter a product name.'
-    if (product && slug.trim() && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug.trim())) {
-      nextFieldErrors.slug = 'Use lowercase letters, numbers, and single hyphens only.'
-    }
-    if (!price.trim()) {
-      nextFieldErrors.price = 'Enter a price.'
-    } else if (!Number.isFinite(parsedPrice) || parsedPrice < 0 || parsedPrice > 999_999_999.99) {
-      nextFieldErrors.price = 'Enter a valid non-negative price.'
-    }
-    const fromDate = availableFrom ? new Date(availableFrom) : null
-    const untilDate = availableUntil ? new Date(availableUntil) : null
-    if (fromDate && Number.isNaN(fromDate.getTime())) {
-      nextFieldErrors.availableFrom = 'Enter a valid start date and time.'
-    }
-    if (untilDate && Number.isNaN(untilDate.getTime())) {
-      nextFieldErrors.availableUntil = 'Enter a valid end date and time.'
-    } else if (fromDate && untilDate && untilDate <= fromDate) {
-      nextFieldErrors.availableUntil = 'Must be later than the available-from date.'
-    }
-    setFieldErrors(nextFieldErrors)
-    if (Object.keys(nextFieldErrors).length > 0) {
-      setError('Check the highlighted fields and try again.')
-      return
-    }
+    const scheduleErrors = validate()
+    if (scheduleErrors.availableFrom || scheduleErrors.availableUntil) setIsScheduleOpen(true)
+    if (!validation.submit()) return
 
     setIsSaving(true)
     setError(null)
@@ -169,8 +156,8 @@ export function ProductDrawer({
         description: description.trim() || null,
         price: parsedPrice.toFixed(2),
         isActive,
-        availableFrom: availableFrom ? new Date(availableFrom).toISOString() : null,
-        availableUntil: availableUntil ? new Date(availableUntil).toISOString() : null,
+        availableFrom: availableFrom ? parseGhanaDateTime(availableFrom)!.toISOString() : null,
+        availableUntil: availableUntil ? parseGhanaDateTime(availableUntil)!.toISOString() : null,
       }
       if (product) {
         const { product: updated } = await updateProduct(token, product.id, input)
@@ -205,7 +192,9 @@ export function ProductDrawer({
       }
       await onSaved()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not save this product.')
+      if (!validation.server(caught, (path) => (['categoryId', 'name', 'slug', 'description', 'price', 'availableFrom', 'availableUntil'] as string[]).includes(path) ? path as ProductField : undefined)) {
+        setError(caught instanceof Error ? caught.message : 'Could not save this product.')
+      }
     } finally {
       setIsSaving(false)
     }
@@ -213,11 +202,20 @@ export function ProductDrawer({
 
   const handleSelectedPhotos = async (files: File[]) => {
     if (files.length === 0) return
+    setPhotoError(null)
+    if (files.some((file) => !['image/jpeg', 'image/png', 'image/webp'].includes(file.type))) {
+      setPhotoError('Choose JPEG, PNG, or WebP photos.')
+      return
+    }
     const existingCount = product?.images.length ?? 0
     const availableSlots = Math.max(0, 20 - existingCount - pendingPhotos.length)
+    if (files.length > availableSlots) {
+      setPhotoError('A product can have up to 20 photos. Select fewer photos.')
+      return
+    }
     const selected = files.slice(0, availableSlots)
     if (selected.length === 0) {
-      setError('A product can have up to 20 photos.')
+      setPhotoError('A product can have up to 20 photos.')
       return
     }
 
@@ -247,7 +245,7 @@ export function ProductDrawer({
       await refreshProduct()
     } catch (caught) {
       await refreshProduct()
-      setError(caught instanceof Error ? caught.message : 'Could not upload this photo.')
+      setPhotoError(caught instanceof Error ? caught.message : 'Could not upload this photo.')
     } finally {
       setIsUploading(false)
     }
@@ -298,6 +296,7 @@ export function ProductDrawer({
             <div>
               <h3 className="text-sm font-bold">Photos</h3>
               <p className="text-xs text-cocoa/50">The first photo is shown as the product cover.</p>
+              {photoError ? <p id="product-photos-error" role="alert" className="mt-1 text-xs text-flame">{photoError}</p> : null}
             </div>
             <input
               ref={photoInputRef}
@@ -362,6 +361,7 @@ export function ProductDrawer({
               <button
                 type="button"
                 aria-label="Add product photos"
+                aria-describedby={photoError ? 'product-photos-error' : undefined}
                 disabled={isUploading || (product?.images.length ?? 0) + pendingPhotos.length >= 20}
                 onClick={() => photoInputRef.current?.click()}
                 className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl bg-cocoa/5 text-3xl font-light text-cocoa transition hover:bg-cocoa/10 hover:text-flame disabled:cursor-not-allowed disabled:opacity-50"
@@ -375,32 +375,30 @@ export function ProductDrawer({
             Category
             <select
               value={categoryId}
-              aria-invalid={Boolean(fieldErrors.categoryId)}
-              aria-describedby={fieldErrors.categoryId ? 'product-category-error' : undefined}
+              {...validation.props('categoryId')}
               onChange={(event) => {
                 setCategoryId(event.target.value)
-                clearFieldError('categoryId')
+                validation.changed('categoryId')
               }}
               className={fieldInputClasses('categoryId')}
             >
               {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
             </select>
-            {fieldErrors.categoryId ? <span id="product-category-error" className="text-xs font-medium text-flame">{fieldErrors.categoryId}</span> : null}
+            {validation.error('categoryId') ? <span id="product-categoryId-error" className="text-xs font-medium text-flame">{validation.error('categoryId')}</span> : null}
           </label>
           <label className="flex flex-col gap-1 text-sm font-semibold">
             Name
             <input
               value={name}
               maxLength={160}
-              aria-invalid={Boolean(fieldErrors.name)}
-              aria-describedby={fieldErrors.name ? 'product-name-error' : undefined}
+              {...validation.props('name')}
               onChange={(event) => {
                 setName(event.target.value)
-                clearFieldError('name')
+                validation.changed('name')
               }}
               className={fieldInputClasses('name')}
             />
-            {fieldErrors.name ? <span id="product-name-error" className="text-xs font-medium text-flame">{fieldErrors.name}</span> : null}
+            {validation.error('name') ? <span id="product-name-error" className="text-xs font-medium text-flame">{validation.error('name')}</span> : null}
           </label>
           {product ? (
             <label className="flex flex-col gap-1 text-sm font-semibold">
@@ -408,20 +406,20 @@ export function ProductDrawer({
               <input
                 value={slug}
                 maxLength={180}
-                aria-invalid={Boolean(fieldErrors.slug)}
-                aria-describedby={fieldErrors.slug ? 'product-slug-error' : undefined}
+                {...validation.props('slug')}
                 onChange={(event) => {
                   setSlug(event.target.value)
-                  clearFieldError('slug')
+                  validation.changed('slug')
                 }}
                 className={fieldInputClasses('slug')}
               />
-              {fieldErrors.slug ? <span id="product-slug-error" className="text-xs font-medium text-flame">{fieldErrors.slug}</span> : null}
+              {validation.error('slug') ? <span id="product-slug-error" className="text-xs font-medium text-flame">{validation.error('slug')}</span> : null}
             </label>
           ) : null}
           <label className="flex flex-col gap-1 text-sm font-semibold">
             Description
-            <textarea value={description} maxLength={5000} onChange={(event) => setDescription(event.target.value)} rows={3} className={inputClasses} />
+            <textarea {...validation.props('description')} value={description} maxLength={5000} onChange={(event) => { setDescription(event.target.value); validation.changed('description') }} rows={3} className={fieldInputClasses('description')} />
+            {validation.error('description') ? <span id="product-description-error" className="text-xs font-medium text-flame">{validation.error('description')}</span> : null}
           </label>
           <label className="flex flex-col gap-1 text-sm font-semibold">
             Price (GHS)
@@ -429,49 +427,69 @@ export function ProductDrawer({
               type="text"
               inputMode="decimal"
               value={price}
-              aria-invalid={Boolean(fieldErrors.price)}
-              aria-describedby={fieldErrors.price ? 'product-price-error' : undefined}
+              {...validation.props('price')}
               onChange={(event) => {
                 setPrice(event.target.value)
-                clearFieldError('price')
+                validation.changed('price')
               }}
               className={fieldInputClasses('price')}
               placeholder="45.00"
             />
-            {fieldErrors.price ? <span id="product-price-error" className="text-xs font-medium text-flame">{fieldErrors.price}</span> : null}
+            {validation.error('price') ? <span id="product-price-error" className="text-xs font-medium text-flame">{validation.error('price')}</span> : null}
           </label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-sm font-semibold">
-              Available from
-              <input
-                type="datetime-local"
-                value={availableFrom}
-                aria-invalid={Boolean(fieldErrors.availableFrom)}
-                aria-describedby={fieldErrors.availableFrom ? 'product-available-from-error' : undefined}
-                onChange={(event) => {
-                  setAvailableFrom(event.target.value)
-                  clearFieldError('availableFrom')
-                  clearFieldError('availableUntil')
-                }}
-                className={fieldInputClasses('availableFrom')}
-              />
-              {fieldErrors.availableFrom ? <span id="product-available-from-error" className="text-xs font-medium text-flame">{fieldErrors.availableFrom}</span> : null}
-            </label>
-            <label className="flex flex-col gap-1 text-sm font-semibold">
-              Available until
-              <input
-                type="datetime-local"
-                value={availableUntil}
-                aria-invalid={Boolean(fieldErrors.availableUntil)}
-                aria-describedby={fieldErrors.availableUntil ? 'product-available-until-error' : undefined}
-                onChange={(event) => {
-                  setAvailableUntil(event.target.value)
-                  clearFieldError('availableUntil')
-                }}
-                className={fieldInputClasses('availableUntil')}
-              />
-              {fieldErrors.availableUntil ? <span id="product-available-until-error" className="text-xs font-medium text-flame">{fieldErrors.availableUntil}</span> : null}
-            </label>
+          <div className="rounded-xl border border-cocoa/15">
+            <button
+              type="button"
+              aria-expanded={isScheduleOpen}
+              aria-controls="product-availability-controls"
+              onClick={() => {
+                setIsScheduleOpen((open) => !open)
+                setOpenCalendar(null)
+              }}
+              className="w-full cursor-pointer rounded-xl p-3 text-left text-sm font-semibold transition-colors hover:bg-cocoa/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flame"
+            >
+              <span className="flex items-center justify-between">
+                <span>Schedule availability</span>
+                <span aria-hidden="true" className="text-cocoa/60">{isScheduleOpen ? '−' : '+'}</span>
+              </span>
+              {!isScheduleOpen ? (
+                <span className="mt-1 block text-xs font-normal text-cocoa/60">
+                  {availableFrom || availableUntil ? 'Availability dates are set. Open to review them.' : 'Optional · Available anytime when dates are blank.'}
+                </span>
+              ) : null}
+            </button>
+            {isScheduleOpen ? (
+              <div id="product-availability-controls" className="flex flex-col gap-3 px-3 pb-3">
+                <p className="text-xs text-cocoa/60">Times are in Ghana time (GMT). Leave either date blank for an open-ended schedule.</p>
+                <AvailabilityDateTimePicker
+                  label="Available from"
+                  value={availableFrom}
+                  defaultTime="09:00"
+                  isCalendarOpen={openCalendar === 'from'}
+                  onToggleCalendar={() => setOpenCalendar((current) => current === 'from' ? null : 'from')}
+                  onChange={(next) => {
+                    setAvailableFrom(next)
+                    validation.changed('availableFrom')
+                    validation.changed('availableUntil')
+                  }}
+                  error={validation.error('availableFrom')}
+                  validationProps={validation.props('availableFrom')}
+                />
+                <AvailabilityDateTimePicker
+                  label="Available until"
+                  value={availableUntil}
+                  defaultTime="18:00"
+                  isCalendarOpen={openCalendar === 'until'}
+                  onToggleCalendar={() => setOpenCalendar((current) => current === 'until' ? null : 'until')}
+                  onChange={(next) => {
+                    setAvailableUntil(next)
+                    validation.changed('availableUntil')
+                  }}
+                  error={validation.error('availableUntil')}
+                  validationProps={validation.props('availableUntil')}
+                />
+              </div>
+            ) : null}
           </div>
           <label className="flex items-center gap-2 text-sm font-semibold">
             <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { deleteJournalPostImage, uploadJournalPostImage, type JournalPostImage } from '@/api/journal'
 import { Button } from '@/components/ui/Button'
+import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 
 function altTextFromFileName(file: File) {
   return file.name.replace(/\.[^./\\]+$/, '').replace(/[-_]+/g, ' ').trim() || 'Cover photo'
@@ -23,6 +24,9 @@ export function JournalCoverPhoto({
   const [caption, setCaption] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const validation = useFormValidation<'caption'>('journal-cover', (): FieldErrors<'caption'> => (
+    caption.trim().length > 2_000 ? { caption: 'Keep the caption under 2,000 characters.' } : {}
+  ))
 
   const pickFile = () => inputRef.current?.click()
 
@@ -35,6 +39,7 @@ export function JournalCoverPhoto({
 
   const confirmUpload = async () => {
     if (!pendingFile) return
+    if (!validation.submit()) return
     setIsSaving(true)
     setError(null)
     try {
@@ -44,9 +49,12 @@ export function JournalCoverPhoto({
         caption: caption.trim() || null,
       })
       cancelPending()
+      validation.reset()
       await onChanged()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not upload this photo.')
+      if (!validation.server(caught, (path) => path === 'caption' ? 'caption' : undefined)) {
+        setError(caught instanceof Error ? caught.message : 'Could not upload this photo.')
+      }
     } finally {
       setIsSaving(false)
     }
@@ -68,15 +76,21 @@ export function JournalCoverPhoto({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0]
           if (file) {
+            if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+              setError('Choose a JPEG, PNG, or WebP photo.')
+              event.target.value = ''
+              return
+            }
             setPendingFile(file)
             setPreviewUrl(URL.createObjectURL(file))
             setCaption('')
             setError(null)
+            validation.reset()
           }
           event.target.value = ''
         }}
@@ -88,11 +102,14 @@ export function JournalCoverPhoto({
         <div className="rounded-2xl border border-cocoa/10 bg-cream/60 p-4">
           <img src={previewUrl ?? undefined} alt="" className="h-48 w-full rounded-xl object-cover" />
           <input
+            {...validation.props('caption')}
+            aria-label="Cover photo caption"
             value={caption}
-            onChange={(event) => setCaption(event.target.value)}
+            onChange={(event) => { setCaption(event.target.value); validation.changed('caption') }}
             placeholder="Add a caption (optional)"
-            className="mt-3 w-full rounded-lg border border-cocoa/20 bg-white px-3 py-2 text-sm outline-none focus:border-flame"
+            className={`mt-3 w-full rounded-lg border border-cocoa/20 bg-white px-3 py-2 text-sm outline-none focus:border-flame ${validation.error('caption') ? 'border-flame bg-flame/5' : ''}`}
           />
+          {validation.error('caption') ? <p id="journal-cover-caption-error" className="mt-1 text-xs text-flame">{validation.error('caption')}</p> : null}
           <div className="mt-3 flex gap-3">
             <Button size="md" disabled={isSaving} onClick={() => void confirmUpload()}>
               {isSaving ? 'Adding…' : 'Add cover photo'}

@@ -1,4 +1,5 @@
 import { normalizePhoneNumber } from '@/utils/phoneNumber'
+import { apiBaseUrl } from '@/api/baseUrl'
 
 export interface AuthUser {
   id: string
@@ -17,6 +18,9 @@ export interface AuthSession {
   token: string
   tokenType: 'Bearer'
   expiresIn: string | number
+  accessExpiresAt: string
+  sessionExpiresAt: string
+  idleExpiresAt: string
 }
 
 export interface SignInCredentials {
@@ -28,7 +32,7 @@ interface ApiErrorResponse {
   error?: string
 }
 
-export const apiBaseUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:4000').replace(/\/$/, '')
+export { apiBaseUrl } from '@/api/baseUrl'
 
 export async function signInRequest(credentials: SignInCredentials): Promise<AuthSession> {
   const response = await fetch(`${apiBaseUrl}/api/auth/signin`, {
@@ -50,7 +54,7 @@ export async function signInRequest(credentials: SignInCredentials): Promise<Aut
 }
 
 export async function refreshSessionRequest(): Promise<AuthSession> {
-  const response = await fetch(`${apiBaseUrl}/api/auth/refresh`, {
+  const response = await fetch(`${apiBaseUrl}/api/auth/admin/refresh`, {
     method: 'POST',
     credentials: 'include',
   })
@@ -64,8 +68,9 @@ export async function refreshSessionRequest(): Promise<AuthSession> {
 }
 
 export async function signOutRequest(): Promise<void> {
-  await fetch(`${apiBaseUrl}/api/auth/signout`, {
+  const response = await fetch(`${apiBaseUrl}/api/auth/admin/signout`, {
     method: 'POST',
     credentials: 'include',
   })
+  if (!response.ok) throw new Error('Could not sign out.')
 }

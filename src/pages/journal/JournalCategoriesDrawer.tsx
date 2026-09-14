@@ -11,6 +11,7 @@ import {
   updateJournalCategory,
   type JournalCategory,
 } from '@/api/journal'
+import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 
 const inputClasses =
   'w-full rounded-lg border border-cocoa/20 px-3 py-2 text-sm font-normal outline-none focus:border-flame'
@@ -36,6 +37,16 @@ export function JournalCategoriesDrawer({
   const [form, setForm] = useState(emptyForm)
   const [isSaving, setIsSaving] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<JournalCategory | null>(null)
+  type CategoryField = 'name' | 'description' | 'sortOrder'
+  const validate = (): FieldErrors<CategoryField> => {
+    const errors: FieldErrors<CategoryField> = {}
+    if (!form.name.trim()) errors.name = 'Enter a category name.'
+    else if (form.name.trim().length > 100) errors.name = 'Keep the name under 100 characters.'
+    if (form.description.trim().length > 2_000) errors.description = 'Keep the description under 2,000 characters.'
+    if (!/^\d+$/.test(form.sortOrder) || Number(form.sortOrder) > 10_000) errors.sortOrder = 'Enter a whole number from 0 to 10,000.'
+    return errors
+  }
+  const validation = useFormValidation<CategoryField>('journal-category', validate)
 
   const refresh = async () => {
     setIsLoading(true)
@@ -56,6 +67,7 @@ export function JournalCategoriesDrawer({
 
   const startEdit = (category: JournalCategory | 'new') => {
     setError(null)
+    validation.reset()
     if (category === 'new') {
       setForm(emptyForm)
     } else {
@@ -69,14 +81,14 @@ export function JournalCategoriesDrawer({
   }
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) return
+    if (!validation.submit()) return
     setIsSaving(true)
     setError(null)
     try {
       const input = {
         name: form.name.trim(),
         description: form.description.trim() || null,
-        sortOrder: Number(form.sortOrder) || 0,
+        sortOrder: Number(form.sortOrder),
       }
       if (editingId && editingId !== 'new') {
         await updateJournalCategory(token, editingId, input)
@@ -87,7 +99,9 @@ export function JournalCategoriesDrawer({
       await refresh()
       await onChanged()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not save this category.')
+      if (!validation.server(caught, (path) => (['name', 'description', 'sortOrder'] as string[]).includes(path) ? path as CategoryField : undefined)) {
+        setError(caught instanceof Error ? caught.message : 'Could not save this category.')
+      }
     } finally {
       setIsSaving(false)
     }
@@ -161,30 +175,36 @@ export function JournalCategoriesDrawer({
             <label className="flex flex-col gap-1 text-sm font-semibold">
               Name
               <input
+                {...validation.props('name')}
                 value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
-                className={inputClasses}
+                onChange={(event) => { setForm({ ...form, name: event.target.value }); validation.changed('name') }}
+                className={`${inputClasses} ${validation.error('name') ? 'border-flame bg-flame/5' : ''}`}
               />
+              {validation.error('name') ? <span id="journal-category-name-error" className="text-xs text-flame">{validation.error('name')}</span> : null}
             </label>
             <label className="flex flex-col gap-1 text-sm font-semibold">
               Description
               <textarea
+                {...validation.props('description')}
                 value={form.description}
-                onChange={(event) => setForm({ ...form, description: event.target.value })}
+                onChange={(event) => { setForm({ ...form, description: event.target.value }); validation.changed('description') }}
                 rows={2}
-                className={inputClasses}
+                className={`${inputClasses} ${validation.error('description') ? 'border-flame bg-flame/5' : ''}`}
               />
+              {validation.error('description') ? <span id="journal-category-description-error" className="text-xs text-flame">{validation.error('description')}</span> : null}
             </label>
             <label className="flex flex-col gap-1 text-sm font-semibold">
               Sort order
               <input
+                {...validation.props('sortOrder')}
                 value={form.sortOrder}
-                onChange={(event) => setForm({ ...form, sortOrder: event.target.value })}
-                className={inputClasses}
+                onChange={(event) => { setForm({ ...form, sortOrder: event.target.value }); validation.changed('sortOrder') }}
+                className={`${inputClasses} ${validation.error('sortOrder') ? 'border-flame bg-flame/5' : ''}`}
               />
+              {validation.error('sortOrder') ? <span id="journal-category-sortOrder-error" className="text-xs text-flame">{validation.error('sortOrder')}</span> : null}
             </label>
             <div className="flex gap-2">
-              <Button size="md" disabled={!form.name.trim() || isSaving} onClick={handleSubmit}>
+              <Button size="md" disabled={isSaving} onClick={handleSubmit}>
                 {isSaving ? 'Saving…' : 'Save'}
               </Button>
               <button className="text-sm font-semibold text-cocoa/60" onClick={() => setEditingId(null)}>
