@@ -1,1 +1,1 @@
-export const apiBaseUrl = (import.meta.env.API_URL).replace(/\/$/, '')
+export const apiBaseUrl = import.meta.env.VITE_API_URL.replace(/\/$/, '')
