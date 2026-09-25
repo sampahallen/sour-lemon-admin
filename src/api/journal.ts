@@ -14,10 +14,8 @@ export interface JournalCategory {
 
 export interface JournalCategoryInput {
   name: string
-  slug?: string
   description?: string | null
   isActive?: boolean
-  sortOrder?: number
 }
 
 export interface JournalCategoryRef {
@@ -156,6 +154,13 @@ export function updateJournalCategory(token: string, id: string, input: Partial<
   return apiRequest<{ category: JournalCategory }>(`/api/journal/categories/${id}`, token, {
     method: 'PATCH',
     json: input,
+  })
+}
+
+export function reorderJournalCategories(token: string, categoryIds: string[]) {
+  return apiRequest<{ categories: JournalCategory[] }>('/api/journal/categories/reorder', token, {
+    method: 'PATCH',
+    json: { categoryIds },
   })
 }
 

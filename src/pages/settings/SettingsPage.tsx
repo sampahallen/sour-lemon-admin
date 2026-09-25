@@ -192,7 +192,7 @@ export function SettingsPage() {
 
         <section className="rounded-xl border border-cocoa/10 bg-white p-5">
           <label htmlFor="settings-pickupLocation" className="font-display text-lg font-bold">Pickup location</label>
-          <p className="mb-3 mt-1 text-sm text-cocoa/70">Shared with customers collecting an order or arranging their own rider.</p>
+          <p className="mb-3 mt-1 text-sm text-cocoa/70">Kept private and shared only when an administrator sends a ready-for-collection message.</p>
           <textarea
             {...validation.props('pickupLocation')}
             rows={3}

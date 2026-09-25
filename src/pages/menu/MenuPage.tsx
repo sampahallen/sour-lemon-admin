@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/auth/authContext'
 import { listCategories, type Category } from '@/api/categories'
 import { deleteProduct, listProducts, updateProduct, type ProductSummary } from '@/api/products'
@@ -10,6 +10,11 @@ import { cn } from '@/utils/cn'
 import { MenuCategoriesDrawer } from './MenuCategoriesDrawer'
 import { ProductDrawer } from './ProductDrawer'
 
+type MenuPageProps = {
+  sectionKey: 'cakes' | 'shop'
+  sectionLabel: 'Bakery' | 'Shop'
+}
+
 const availabilityLabel = (product: ProductSummary) => {
   const now = new Date()
   if (product.availableFrom && new Date(product.availableFrom) > now) {
@@ -20,7 +25,7 @@ const availabilityLabel = (product: ProductSummary) => {
   return 'Always available'
 }
 
-export function MenuPage() {
+export function MenuPage({ sectionKey, sectionLabel }: MenuPageProps) {
   const { session } = useAuth()
   const token = session!.token
   const [siteSectionId, setSiteSectionId] = useState<string | null>(null)
@@ -33,12 +38,16 @@ export function MenuPage() {
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<ProductSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const categoryRequestId = useRef(0)
+  const productRequestId = useRef(0)
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
+    const requestId = ++categoryRequestId.current
     setIsLoadingCategories(true)
     setError(null)
     try {
-      const { categories, siteSection } = await listCategories(token, { sectionKey: 'cakes' })
+      const { categories, siteSection } = await listCategories(token, { sectionKey })
+      if (requestId !== categoryRequestId.current) return
       setCategories(categories)
       setSiteSectionId(siteSection?.id ?? categories[0]?.siteSectionId ?? null)
       setActiveCategoryId((current) =>
@@ -47,38 +56,47 @@ export function MenuPage() {
           : categories[0]?.id ?? null,
       )
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not load Bakery categories.')
+      if (requestId !== categoryRequestId.current) return
+      setCategories([])
+      setSiteSectionId(null)
+      setActiveCategoryId(null)
+      setError(caught instanceof Error ? caught.message : `Could not load ${sectionLabel} categories.`)
     } finally {
-      setIsLoadingCategories(false)
+      if (requestId === categoryRequestId.current) setIsLoadingCategories(false)
     }
-  }
+  }, [sectionKey, sectionLabel, token])
 
-  const refreshProducts = async (categoryId = activeCategoryId) => {
+  const refreshProducts = useCallback(async (categoryId = activeCategoryId) => {
+    const requestId = ++productRequestId.current
     if (!categoryId) {
       setProducts([])
+      setIsLoadingProducts(false)
       return
     }
     setIsLoadingProducts(true)
     setError(null)
     try {
       const { products } = await listProducts(token, { categoryId, includeInactive: true })
+      if (requestId !== productRequestId.current) return
       setProducts(products)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not load products.')
+      if (requestId !== productRequestId.current) return
+      setProducts([])
+      setError(caught instanceof Error ? caught.message : `Could not load ${sectionLabel} products.`)
     } finally {
-      setIsLoadingProducts(false)
+      if (requestId === productRequestId.current) setIsLoadingProducts(false)
     }
-  }
+  }, [activeCategoryId, sectionLabel, token])
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect
     void loadCategories()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token])
+  }, [loadCategories])
 
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect
     void refreshProducts(activeCategoryId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCategoryId, token])
+  }, [activeCategoryId, refreshProducts])
 
   const toggleProduct = async (product: ProductSummary, isActive: boolean) => {
     setError(null)
@@ -111,7 +129,7 @@ export function MenuPage() {
   return (
     <div>
       <PageHeader
-        title="Menu"
+        title={`${sectionLabel} menu`}
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setIsCategoriesOpen(true)}>Manage categories</Button>
@@ -120,13 +138,13 @@ export function MenuPage() {
         }
       />
 
-      {error ? <p className="mb-4 rounded-lg bg-flame/10 px-3 py-2 text-sm font-semibold text-flame">{error}</p> : null}
+      {error ? <p className="mb-4 rounded-lg bg-flame/10 px-3 py-2 text-sm font-semibold text-flame">{sectionLabel}: {error}</p> : null}
 
       {isLoadingCategories ? (
-        <p className="text-cocoa/60">Loading Bakery menu…</p>
+        <p className="text-cocoa/60">Loading {sectionLabel} menu…</p>
       ) : categories.length === 0 ? (
         <div className="rounded-xl border border-cocoa/10 bg-white p-8 text-center text-cocoa/60">
-          Add a Bakery category before creating products.
+          Add a {sectionLabel} category before creating products.
         </div>
       ) : (
         <>
@@ -146,10 +164,10 @@ export function MenuPage() {
           </div>
 
           {isLoadingProducts ? (
-            <p className="text-cocoa/60">Loading products…</p>
+            <p className="text-cocoa/60">Loading {sectionLabel} products…</p>
           ) : products.length === 0 ? (
             <div className="rounded-xl border border-cocoa/10 bg-white p-8 text-center text-cocoa/60">
-              No products in this category yet.
+              No {sectionLabel} products in this category yet.
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -188,7 +206,9 @@ export function MenuPage() {
         onSaved={() => refreshProducts()}
       />
       <MenuCategoriesDrawer
+        key={sectionKey}
         isOpen={isCategoriesOpen}
+        sectionLabel={sectionLabel}
         siteSectionId={siteSectionId}
         categories={categories}
         onClose={() => setIsCategoriesOpen(false)}

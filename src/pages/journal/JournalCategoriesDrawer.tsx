@@ -3,11 +3,13 @@ import { Drawer } from '@/components/ui/Drawer'
 import { Button } from '@/components/ui/Button'
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { CategoryOrderList } from '@/components/ui/CategoryOrderList'
 import { useAuth } from '@/auth/authContext'
 import {
   createJournalCategory,
   deleteJournalCategory,
   listJournalCategories,
+  reorderJournalCategories,
   updateJournalCategory,
   type JournalCategory,
 } from '@/api/journal'
@@ -16,7 +18,7 @@ import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 const inputClasses =
   'w-full rounded-lg border border-cocoa/20 px-3 py-2 text-sm font-normal outline-none focus:border-flame'
 
-const emptyForm = { name: '', description: '', sortOrder: '0' }
+const emptyForm = { name: '', description: '' }
 
 export function JournalCategoriesDrawer({
   isOpen,
@@ -36,14 +38,14 @@ export function JournalCategoriesDrawer({
   const [editingId, setEditingId] = useState<string | 'new' | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [isSaving, setIsSaving] = useState(false)
+  const [isOrdering, setIsOrdering] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<JournalCategory | null>(null)
-  type CategoryField = 'name' | 'description' | 'sortOrder'
+  type CategoryField = 'name' | 'description'
   const validate = (): FieldErrors<CategoryField> => {
     const errors: FieldErrors<CategoryField> = {}
     if (!form.name.trim()) errors.name = 'Enter a category name.'
     else if (form.name.trim().length > 100) errors.name = 'Keep the name under 100 characters.'
     if (form.description.trim().length > 2_000) errors.description = 'Keep the description under 2,000 characters.'
-    if (!/^\d+$/.test(form.sortOrder) || Number(form.sortOrder) > 10_000) errors.sortOrder = 'Enter a whole number from 0 to 10,000.'
     return errors
   }
   const validation = useFormValidation<CategoryField>('journal-category', validate)
@@ -74,7 +76,6 @@ export function JournalCategoriesDrawer({
       setForm({
         name: category.name,
         description: category.description ?? '',
-        sortOrder: String(category.sortOrder),
       })
     }
     setEditingId(category === 'new' ? 'new' : category.id)
@@ -88,7 +89,6 @@ export function JournalCategoriesDrawer({
       const input = {
         name: form.name.trim(),
         description: form.description.trim() || null,
-        sortOrder: Number(form.sortOrder),
       }
       if (editingId && editingId !== 'new') {
         await updateJournalCategory(token, editingId, input)
@@ -99,7 +99,7 @@ export function JournalCategoriesDrawer({
       await refresh()
       await onChanged()
     } catch (caught) {
-      if (!validation.server(caught, (path) => (['name', 'description', 'sortOrder'] as string[]).includes(path) ? path as CategoryField : undefined)) {
+      if (!validation.server(caught, (path) => (['name', 'description'] as string[]).includes(path) ? path as CategoryField : undefined)) {
         setError(caught instanceof Error ? caught.message : 'Could not save this category.')
       }
     } finally {
@@ -131,10 +131,41 @@ export function JournalCategoriesDrawer({
     }
   }
 
+  const reorder = async (categoryIds: string[]) => {
+    setError(null)
+    try {
+      const { categories: reordered } = await reorderJournalCategories(token, categoryIds)
+      setCategories(reordered)
+      await onChanged()
+      return true
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Could not save the category order.')
+      return false
+    }
+  }
+
+  const closeDrawer = () => {
+    setIsOrdering(false)
+    setEditingId(null)
+    onClose()
+  }
+
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} title="Journal categories">
+    <Drawer isOpen={isOpen} onClose={closeDrawer} title="Journal categories">
       <div className="flex flex-col gap-4">
         {error ? <p className="rounded-lg bg-flame/10 px-3 py-2 text-sm font-semibold text-flame">{error}</p> : null}
+
+        {!isLoading && !editingId && categories.length > 1 ? (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="text-sm font-semibold text-flame"
+              onClick={() => setIsOrdering((current) => !current)}
+            >
+              {isOrdering ? 'Done' : 'Edit order'}
+            </button>
+          </div>
+        ) : null}
 
         {isLoading ? (
           <p className="text-cocoa/60">Loading…</p>
@@ -142,14 +173,13 @@ export function JournalCategoriesDrawer({
           <p className="rounded-xl border border-cocoa/10 bg-white p-4 text-center text-sm text-cocoa/60">
             No categories yet. Add one below.
           </p>
+        ) : isOrdering ? (
+          <CategoryOrderList categories={categories} onReorder={reorder} />
         ) : (
           <div className="flex flex-col divide-y divide-cocoa/10 rounded-xl border border-cocoa/10 bg-white">
             {categories.map((category) => (
               <div key={category.id} className="flex items-center justify-between gap-3 p-3">
-                <div>
-                  <p className="font-semibold">{category.name}</p>
-                  <p className="text-xs text-cocoa/50">/{category.slug}</p>
-                </div>
+                <p className="font-semibold">{category.name}</p>
                 <div className="flex items-center gap-3">
                   <ToggleSwitch
                     checked={category.isActive}
@@ -193,16 +223,6 @@ export function JournalCategoriesDrawer({
               />
               {validation.error('description') ? <span id="journal-category-description-error" className="text-xs text-flame">{validation.error('description')}</span> : null}
             </label>
-            <label className="flex flex-col gap-1 text-sm font-semibold">
-              Sort order
-              <input
-                {...validation.props('sortOrder')}
-                value={form.sortOrder}
-                onChange={(event) => { setForm({ ...form, sortOrder: event.target.value }); validation.changed('sortOrder') }}
-                className={`${inputClasses} ${validation.error('sortOrder') ? 'border-flame bg-flame/5' : ''}`}
-              />
-              {validation.error('sortOrder') ? <span id="journal-category-sortOrder-error" className="text-xs text-flame">{validation.error('sortOrder')}</span> : null}
-            </label>
             <div className="flex gap-2">
               <Button size="md" disabled={isSaving} onClick={handleSubmit}>
                 {isSaving ? 'Saving…' : 'Save'}
@@ -212,7 +232,7 @@ export function JournalCategoriesDrawer({
               </button>
             </div>
           </div>
-        ) : (
+        ) : isOrdering ? null : (
           <Button variant="outline" onClick={() => startEdit('new')}>
             Add category
           </Button>

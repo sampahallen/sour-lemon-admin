@@ -15,7 +15,8 @@ const NAV_GROUPS = [
   {
     label: 'Storefront',
     items: [
-      { to: '/menu', label: 'Menu' },
+      { to: '/bakery', label: 'Bakery' },
+      { to: '/shop', label: 'Shop' },
       { to: '/journal', label: 'Journal' },
       { to: '/sections', label: 'Sections' },
     ],
