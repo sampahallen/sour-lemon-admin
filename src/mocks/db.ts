@@ -172,7 +172,7 @@ export const orders: OrderDetail[] = [
 // ---- App settings (real keys + defaults from the backend seeder) ----
 export const appSettings: AppSetting[] = [
   { key: 'business_whatsapp_number', value: null, description: 'WhatsApp number used for customer handoffs', updatedAt: now() },
-  { key: 'pickup_location', value: null, description: 'Customer-facing pickup location', updatedAt: now() },
+  { key: 'pickup_location', value: null, description: 'Private collection location for ready-order messages', updatedAt: now() },
   { key: 'manual_payment_review', value: true, description: 'Require owner review after verified payment', updatedAt: now() },
   { key: 'delivery_fee_mode', value: 'rider', description: 'Whether delivery fees come from areas or riders', updatedAt: now() },
   { key: 'menu_scheduling_enabled', value: false, description: 'Allow scheduled catalog availability', updatedAt: now() },

@@ -12,9 +12,7 @@ export interface Category {
 export interface CategoryInput {
   siteSectionId: string
   name: string
-  slug?: string
   isActive?: boolean
-  sortOrder?: number
 }
 
 export interface CategorySiteSection {
@@ -45,6 +43,13 @@ export function updateCategory(token: string, id: string, input: Partial<Categor
   return apiRequest<{ category: Category }>(`/api/categories/${id}`, token, {
     method: 'PATCH',
     json: input,
+  })
+}
+
+export function reorderCategories(token: string, siteSectionId: string, categoryIds: string[]) {
+  return apiRequest<{ categories: Category[] }>('/api/categories/reorder', token, {
+    method: 'PATCH',
+    json: { siteSectionId, categoryIds },
   })
 }
 

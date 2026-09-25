@@ -37,12 +37,12 @@ const quoteAttributionClasses =
 const captionClasses = 'w-full bg-transparent text-center text-sm text-cocoa/55 outline-none placeholder:text-cocoa/30'
 
 const TOOLBAR_ITEMS: { label: string; glyph: string; block: () => JournalBlock }[] = [
-  { label: 'Text', glyph: '¶', block: () => createEmptyBlock('paragraph') },
+  { label: 'Text', glyph: 'Aa', block: () => createEmptyBlock('paragraph') },
   { label: 'Heading', glyph: 'H2', block: () => ({ type: 'heading', level: 2, text: '' }) },
   { label: 'Subheading', glyph: 'H3', block: () => ({ type: 'heading', level: 3, text: '' }) },
-  { label: 'Bulleted list', glyph: '•—', block: () => ({ type: 'list', style: 'unordered', items: [''] }) },
-  { label: 'Numbered list', glyph: '1—', block: () => ({ type: 'list', style: 'ordered', items: [''] }) },
-  { label: 'Quote', glyph: '❝', block: () => ({ type: 'quote', text: '', attribution: '' }) },
+  { label: 'Bullets', glyph: '•', block: () => ({ type: 'list', style: 'unordered', items: [''] }) },
+  { label: 'Numbers', glyph: '1.', block: () => ({ type: 'list', style: 'ordered', items: [''] }) },
+  { label: 'Quote', glyph: '“', block: () => ({ type: 'quote', text: '', attribution: '' }) },
 ]
 
 type ToolbarFormat = 'paragraph' | 'heading-2' | 'heading-3' | 'unordered-list' | 'ordered-list' | 'quote'
@@ -219,7 +219,9 @@ export function JournalBodyEditor({
 
   return (
     <div>
-      <div className="sticky top-4 z-10 mb-4 flex flex-wrap items-center gap-1 rounded-full border border-cocoa/10 bg-white/95 p-1.5 shadow-sm backdrop-blur">
+      <div className="sticky top-20 z-10 mb-5 rounded-2xl border border-cocoa/10 bg-white/95 p-2 shadow-sm backdrop-blur">
+        <p className="px-2 pb-1 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-cocoa/35">Add or format a block</p>
+        <div className="flex flex-wrap items-center gap-1">
         {TOOLBAR_ITEMS.map((item) => {
           const format = blockFormat(item.block())!
           const isActive = blockFormat(activeIndex === null ? undefined : blocks[activeIndex]) === format
@@ -231,13 +233,14 @@ export function JournalBodyEditor({
               aria-label={item.label}
               aria-pressed={isActive}
               onClick={() => toggleFormat(format)}
-              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold transition-colors ${
                 isActive
                   ? 'bg-flame text-white shadow-sm'
                   : 'text-cocoa/60 hover:bg-flame/10 hover:text-flame'
               }`}
             >
-              {item.glyph}
+              <span className="font-display font-bold" aria-hidden="true">{item.glyph}</span>
+              <span>{item.label}</span>
             </button>
           )
         })}
@@ -246,9 +249,9 @@ export function JournalBodyEditor({
           title="Insert photo"
           disabled={isUploadingImage}
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-full px-3 py-1.5 text-sm font-semibold text-cocoa/60 hover:bg-flame/10 hover:text-flame disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-cocoa/60 hover:bg-flame/10 hover:text-flame disabled:opacity-40"
         >
-          {isUploadingImage ? 'Uploading…' : '🖼 Photo'}
+          {isUploadingImage ? 'Uploading...' : '+ Photo'}
         </button>
         <input
           ref={fileInputRef}
@@ -261,6 +264,7 @@ export function JournalBodyEditor({
             event.target.value = ''
           }}
         />
+        </div>
       </div>
 
       {uploadError ? <p className="mb-3 text-sm font-semibold text-flame">{uploadError}</p> : null}
@@ -287,7 +291,8 @@ export function JournalBodyEditor({
             onClick={() => insertBlockAfter(-1, createEmptyBlock('paragraph'))}
             className="rounded-xl border-2 border-dashed border-cocoa/15 py-12 text-center text-lg text-cocoa/40 hover:border-flame/40 hover:text-cocoa/60"
           >
-            Click to start writing, or use the toolbar above to add a heading, list, quote, or photo.
+            <span className="block font-display text-xl font-bold text-cocoa/60">Start your first paragraph</span>
+            <span className="mt-2 block text-sm">Click here to write, or choose a heading, list, quote, or photo above.</span>
           </button>
         ) : (
           blocks.map((block, index) => (
@@ -436,7 +441,7 @@ export function JournalBodyEditor({
             onClick={appendParagraph}
             className="rounded-lg py-2 text-left text-cocoa/30 hover:text-cocoa/50"
           >
-            Click to continue writing…
+            + Continue with a new paragraph
           </button>
         ) : null}
       </div>
