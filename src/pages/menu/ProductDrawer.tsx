@@ -19,7 +19,7 @@ import { AvailabilityDateTimePicker } from './AvailabilityDateTimePicker'
 const inputClasses =
   'w-full rounded-lg border border-cocoa/20 px-3 py-2 font-normal outline-none focus:border-flame'
 
-type ProductField = 'categoryId' | 'name' | 'slug' | 'description' | 'price' | 'availableFrom' | 'availableUntil'
+type ProductField = 'categoryId' | 'name' | 'description' | 'price' | 'availableFrom' | 'availableUntil'
 
 interface PendingPhoto {
   id: string
@@ -47,7 +47,6 @@ export function ProductDrawer({
   const [product, setProduct] = useState<ProductDetail | null>(null)
   const [categoryId, setCategoryId] = useState(defaultCategoryId ?? categories[0]?.id ?? '')
   const [name, setName] = useState('')
-  const [slug, setSlug] = useState('')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState('')
   const [isActive, setIsActive] = useState(true)
@@ -70,8 +69,6 @@ export function ProductDrawer({
     if (!categoryId) errors.categoryId = 'Choose a category.'
     if (!name.trim()) errors.name = 'Enter a product name.'
     else if (name.trim().length > 160) errors.name = 'Keep the name under 160 characters.'
-    if (product && slug.trim() && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug.trim())) errors.slug = 'Use lowercase letters, numbers, and single hyphens only.'
-    else if (slug.trim().length > 180) errors.slug = 'Keep the slug under 180 characters.'
     if (description.trim().length > 5_000) errors.description = 'Keep the description under 5,000 characters.'
     if (!price.trim()) errors.price = 'Enter a price.'
     else if (!Number.isFinite(parsedPrice) || parsedPrice < 0 || parsedPrice > 999_999_999.99) errors.price = 'Enter a valid non-negative price.'
@@ -98,7 +95,6 @@ export function ProductDrawer({
     setProduct(next)
     setCategoryId(next.categoryId)
     setName(next.name)
-    setSlug(next.slug)
     setDescription(next.description ?? '')
     setPrice(next.price)
     setIsActive(next.isActive)
@@ -152,13 +148,13 @@ export function ProductDrawer({
       const input = {
         categoryId,
         name: name.trim(),
-        ...(product && slug.trim() ? { slug: slug.trim() } : {}),
         description: description.trim() || null,
         price: parsedPrice.toFixed(2),
         isActive,
-        availableFrom: availableFrom ? parseGhanaDateTime(availableFrom)!.toISOString() : null,
-        availableUntil: availableUntil ? parseGhanaDateTime(availableUntil)!.toISOString() : null,
+        ...(product || availableFrom ? { availableFrom: availableFrom ? parseGhanaDateTime(availableFrom)!.toISOString() : null } : {}),
+        ...(product || availableUntil ? { availableUntil: availableUntil ? parseGhanaDateTime(availableUntil)!.toISOString() : null } : {}),
       }
+      let closeAfterSave = false
       if (product) {
         const { product: updated } = await updateProduct(token, product.id, input)
         applyProduct(updated)
@@ -188,11 +184,13 @@ export function ProductDrawer({
           setError('Product created, but one or more photos could not be uploaded.')
         } else {
           setNotice('Product created.')
+          closeAfterSave = true
         }
       }
       await onSaved()
+      if (closeAfterSave) onClose()
     } catch (caught) {
-      if (!validation.server(caught, (path) => (['categoryId', 'name', 'slug', 'description', 'price', 'availableFrom', 'availableUntil'] as string[]).includes(path) ? path as ProductField : undefined)) {
+      if (!validation.server(caught, (path) => (['categoryId', 'name', 'description', 'price', 'availableFrom', 'availableUntil'] as string[]).includes(path) ? path as ProductField : undefined)) {
         setError(caught instanceof Error ? caught.message : 'Could not save this product.')
       }
     } finally {
@@ -400,22 +398,6 @@ export function ProductDrawer({
             />
             {validation.error('name') ? <span id="product-name-error" className="text-xs font-medium text-flame">{validation.error('name')}</span> : null}
           </label>
-          {product ? (
-            <label className="flex flex-col gap-1 text-sm font-semibold">
-              Slug
-              <input
-                value={slug}
-                maxLength={180}
-                {...validation.props('slug')}
-                onChange={(event) => {
-                  setSlug(event.target.value)
-                  validation.changed('slug')
-                }}
-                className={fieldInputClasses('slug')}
-              />
-              {validation.error('slug') ? <span id="product-slug-error" className="text-xs font-medium text-flame">{validation.error('slug')}</span> : null}
-            </label>
-          ) : null}
           <label className="flex flex-col gap-1 text-sm font-semibold">
             Description
             <textarea {...validation.props('description')} value={description} maxLength={5000} onChange={(event) => { setDescription(event.target.value); validation.changed('description') }} rows={3} className={fieldInputClasses('description')} />
@@ -449,12 +431,12 @@ export function ProductDrawer({
               className="w-full cursor-pointer rounded-xl p-3 text-left text-sm font-semibold transition-colors hover:bg-cocoa/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flame"
             >
               <span className="flex items-center justify-between">
-                <span>Schedule availability</span>
+                <span>Schedule availability <span className="font-normal text-cocoa/60">(optional)</span></span>
                 <span aria-hidden="true" className="text-cocoa/60">{isScheduleOpen ? '−' : '+'}</span>
               </span>
               {!isScheduleOpen ? (
                 <span className="mt-1 block text-xs font-normal text-cocoa/60">
-                  {availableFrom || availableUntil ? 'Availability dates are set. Open to review them.' : 'Optional · Available anytime when dates are blank.'}
+                  {availableFrom || availableUntil ? 'Availability dates are set. Open to review them.' : 'Leave dates blank to show this product anytime.'}
                 </span>
               ) : null}
             </button>

@@ -26,7 +26,6 @@ const inputClasses =
 
 interface EditorForm {
   title: string
-  slug: string
   categoryId: string
   excerpt: string
   blocks: JournalBlock[]
@@ -38,7 +37,6 @@ const AUTOSAVE_DELAY_MS = 1500
 
 const formFromPost = (post: JournalPostDetail): EditorForm => ({
   title: post.title,
-  slug: post.slug,
   categoryId: post.categoryId,
   excerpt: post.excerpt ?? '',
   blocks: post.body.blocks,
@@ -84,15 +82,12 @@ export function JournalPostEditorPage() {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null)
   const [isScheduleOpen, setIsScheduleOpen] = useState(false)
   const [validationMode, setValidationMode] = useState<'draft' | 'publish' | 'schedule'>('draft')
-  type EditorField = 'title' | 'slug' | 'categoryId' | 'excerpt' | 'blocks' | 'scheduledFor'
+  type EditorField = 'title' | 'categoryId' | 'excerpt' | 'blocks' | 'scheduledFor'
   const validate = (mode: 'draft' | 'publish' | 'schedule'): FieldErrors<EditorField> => {
     const errors: FieldErrors<EditorField> = {}
     if (!form) return errors
     if (!form.title.trim()) errors.title = 'Enter a title.'
     else if (form.title.trim().length > 200) errors.title = 'Keep the title under 200 characters.'
-    if (!form.slug.trim()) errors.slug = 'Enter a slug.'
-    else if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(form.slug.trim())) errors.slug = 'Use lowercase letters, numbers, and single hyphens only.'
-    else if (form.slug.trim().length > 220) errors.slug = 'Keep the slug under 220 characters.'
     if (!form.categoryId) errors.categoryId = 'Choose a category.'
     if (mode !== 'draft') {
       if (!categories.find((category) => category.id === form.categoryId)?.isActive) errors.categoryId = 'Choose an active category before publishing.'
@@ -180,7 +175,6 @@ export function JournalPostEditorPage() {
     try {
       const { post: updated } = await updateJournalPost(token, post.id, {
         title: snapshot.title.trim(),
-        slug: snapshot.slug.trim(),
         categoryId: snapshot.categoryId,
         excerpt: snapshot.excerpt.trim() || null,
         body: { version: 1, blocks: snapshot.blocks },
@@ -192,7 +186,7 @@ export function JournalPostEditorPage() {
       setSavedForm(snapshot)
       return true
     } catch (caught) {
-      if (!validation.server(caught, (path) => path === 'body' || path.startsWith('body.') ? 'blocks' : (['title', 'slug', 'categoryId', 'excerpt'] as string[]).includes(path) ? path as EditorField : undefined)) {
+      if (!validation.server(caught, (path) => path === 'body' || path.startsWith('body.') ? 'blocks' : (['title', 'categoryId', 'excerpt'] as string[]).includes(path) ? path as EditorField : undefined)) {
         setError(caught instanceof Error ? caught.message : 'Could not save this post.')
       }
       return false
@@ -429,21 +423,6 @@ export function JournalPostEditorPage() {
             </select>
           </label>
           {validation.error('categoryId') ? <span id="journal-post-categoryId-error" className="mt-1 block text-xs text-flame">{validation.error('categoryId')}</span> : null}
-
-          <label className="mt-5 block text-sm font-bold text-cocoa">
-            Story URL
-            <span className="mt-1.5 flex items-center rounded-lg border border-cocoa/20 bg-white px-3 focus-within:border-flame">
-              <span className="shrink-0 text-xs font-normal text-cocoa/40">/journal/</span>
-              <input
-                {...validation.props('slug')}
-                value={form.slug}
-                maxLength={220}
-                className="min-w-0 flex-1 bg-transparent py-2 text-sm font-semibold text-cocoa outline-none"
-                onChange={(event) => { setForm({ ...form, slug: event.target.value }); validation.changed('slug') }}
-              />
-            </span>
-          </label>
-          {validation.error('slug') ? <span id="journal-post-slug-error" className="mt-1 block text-xs text-flame">{validation.error('slug')}</span> : null}
 
           <label className="mt-5 block text-sm font-bold text-cocoa">
             Journal card summary
