@@ -120,20 +120,20 @@ export function JournalCoverPhoto({
           </div>
         </div>
       ) : cover ? (
-        <div className="group relative overflow-hidden rounded-2xl">
+        <div className="overflow-hidden rounded-xl border border-cocoa/10">
           <img src={cover.url} alt={cover.altText} className="h-56 w-full object-cover" />
-          <div className="absolute inset-0 flex items-end justify-end gap-2 bg-gradient-to-t from-cocoa/55 via-transparent to-transparent p-3 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex justify-end gap-2 bg-white p-3">
             <button
               type="button"
               onClick={pickFile}
-              className="rounded-full bg-white/90 px-4 py-1.5 text-xs font-semibold text-cocoa hover:bg-white"
+              className="rounded-lg border border-cocoa/15 px-3 py-1.5 text-xs font-semibold text-cocoa hover:bg-cream/50"
             >
               Replace
             </button>
             <button
               type="button"
               onClick={() => void handleRemove()}
-              className="rounded-full bg-white/90 px-4 py-1.5 text-xs font-semibold text-flame hover:bg-white"
+              className="rounded-lg border border-flame/15 px-3 py-1.5 text-xs font-semibold text-flame hover:bg-flame/5"
             >
               Remove
             </button>

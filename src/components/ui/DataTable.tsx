@@ -18,19 +18,19 @@ interface DataTableProps<T> {
 export function DataTable<T>({ columns, rows, rowKey, onRowClick, emptyState }: DataTableProps<T>) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-cocoa/10 bg-white p-8 text-center text-cocoa/60">
+      <div className="rounded-2xl border border-dashed border-cocoa/15 bg-white p-12 text-center text-sm text-cocoa/60">
         {emptyState ?? 'Nothing here yet.'}
       </div>
     )
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-cocoa/10 bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-cocoa/10 bg-white shadow-sm">
       <table className="w-full text-left text-sm">
-        <thead>
-          <tr className="border-b border-cocoa/10 text-cocoa/60">
+        <thead className="bg-[#faf9f6]">
+          <tr className="border-b border-cocoa/10 text-cocoa/55">
             {columns.map((column) => (
-              <th key={column.header} className={cn('whitespace-nowrap px-4 py-3 font-semibold', column.className)}>
+              <th key={column.header} className={cn('whitespace-nowrap px-5 py-3 text-xs font-bold uppercase tracking-wide', column.className)}>
                 {column.header}
               </th>
             ))}
@@ -41,10 +41,17 @@ export function DataTable<T>({ columns, rows, rowKey, onRowClick, emptyState }: 
             <tr
               key={rowKey(row)}
               onClick={() => onRowClick?.(row)}
-              className={cn('border-b border-cocoa/5 last:border-0', onRowClick && 'cursor-pointer hover:bg-cocoa/5')}
+              onKeyDown={(event) => {
+                if (onRowClick && (event.key === 'Enter' || event.key === ' ')) {
+                  event.preventDefault()
+                  onRowClick(row)
+                }
+              }}
+              tabIndex={onRowClick ? 0 : undefined}
+              className={cn('border-b border-cocoa/5 last:border-0', onRowClick && 'cursor-pointer hover:bg-cream/30 focus:bg-cream/30')}
             >
               {columns.map((column) => (
-                <td key={column.header} className={cn('px-4 py-3', column.className)}>
+                <td key={column.header} className={cn('px-5 py-4', column.className)}>
                   {column.render(row)}
                 </td>
               ))}

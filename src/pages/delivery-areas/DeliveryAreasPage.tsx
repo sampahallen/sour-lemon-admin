@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { DataTable } from '@/components/ui/DataTable'
 import { Drawer } from '@/components/ui/Drawer'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 import { useAuth } from '@/auth/authContext'
 import {
   createDeliveryArea,
@@ -36,15 +37,20 @@ export function DeliveryAreasPage() {
   return (
     <div>
       <PageHeader title="Delivery Areas" action={<Button onClick={() => setEditingArea('new')}>Add area</Button>} />
+      <div className="mb-6 rounded-2xl border border-cocoa/10 bg-white p-5 shadow-sm">
+        <h2 className="font-display text-lg font-bold">Where we deliver</h2>
+        <p className="mt-1 max-w-2xl text-sm text-cocoa/60">Keep service areas and fees current for checkout. The delivery fee policy is set in Settings.</p>
+        {!isLoading ? <p className="mt-3 text-xs font-bold uppercase tracking-wider text-cocoa/45">{areas.filter((area) => area.isActive).length} active of {areas.length} areas</p> : null}
+      </div>
 
       {isLoading ? (
         <p className="text-cocoa/60">Loading…</p>
       ) : (
         <DataTable
           columns={[
-            { header: 'Name', render: (area) => area.name },
-            { header: 'Fee (GHS)', render: (area) => area.deliveryFee ?? '—' },
-            { header: 'Status', render: (area) => (area.isActive ? 'Active' : 'Inactive') },
+            { header: 'Area', render: (area) => <span className="font-bold text-cocoa">{area.name}</span> },
+            { header: 'Fee', render: (area) => area.deliveryFee ? `GHS ${area.deliveryFee}` : 'No fee set' },
+            { header: 'Status', render: (area) => <StatusBadge label={area.isActive ? 'Active' : 'Inactive'} tone={area.isActive ? 'positive' : 'neutral'} /> },
             {
               header: '',
               render: (area) => (
@@ -144,7 +150,7 @@ function DeliveryAreaDrawer({
 
   return (
     <Drawer isOpen={area !== null} onClose={onClose} title={editing ? 'Edit delivery area' : 'Add delivery area'}>
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-5 rounded-2xl border border-cocoa/10 bg-white p-5">
         {error ? <p role="alert" className="rounded-lg bg-flame/10 px-3 py-2 text-sm text-flame">{error}</p> : null}
         <label className="flex flex-col gap-1 text-sm font-semibold">
           Name
@@ -160,6 +166,7 @@ function DeliveryAreaDrawer({
 
         <label className="flex flex-col gap-1 text-sm font-semibold">
           Delivery fee (GHS)
+          <span className="text-xs font-normal text-cocoa/55">Leave blank when no fee is set for this area.</span>
           <input
             {...validation.props('deliveryFee')}
             value={deliveryFee}
@@ -172,7 +179,7 @@ function DeliveryAreaDrawer({
 
         <label className="flex items-center gap-2 text-sm font-semibold">
           <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
-          Active
+          Available to customers
         </label>
 
         <Button disabled={isSaving} onClick={handleSubmit} className="mt-2">

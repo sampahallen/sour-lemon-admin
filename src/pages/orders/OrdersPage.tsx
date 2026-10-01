@@ -335,12 +335,15 @@ export function OrdersPage() {
         )}
       />
 
-      <div className="mb-5 inline-flex rounded-full bg-cocoa/10 p-1 text-sm font-semibold">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="inline-flex rounded-xl border border-cocoa/10 bg-white p-1 text-sm font-semibold shadow-sm" role="tablist" aria-label="Order view">
         {(['active', 'history'] as const).map((tab) => (
           <button
             key={tab}
             type="button"
-            className={`rounded-full px-5 py-2 capitalize ${view === tab ? 'bg-white text-cocoa shadow-sm' : 'text-cocoa/55'}`}
+            role="tab"
+            aria-selected={view === tab}
+            className={`rounded-lg px-5 py-2 capitalize ${view === tab ? 'bg-cocoa text-white shadow-sm' : 'text-cocoa/55 hover:text-cocoa'}`}
             onClick={() => {
               setView(tab)
               setPage(1)
@@ -349,6 +352,8 @@ export function OrdersPage() {
             {tab}
           </button>
         ))}
+      </div>
+      <p className="text-xs text-cocoa/55">{view === 'active' ? 'Orders needing fulfillment now' : 'Completed and cancelled orders'}</p>
       </div>
 
       {error ? <p className="mb-4 rounded-xl bg-flame/10 px-4 py-3 text-sm font-semibold text-flame">{error}</p> : null}
@@ -382,18 +387,18 @@ export function OrdersPage() {
                 </div>
               </div>
             </div>
-            <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid items-start gap-4 md:grid-cols-2 2xl:grid-cols-4">
             {fulfillmentQueueKeys.map((queueKey) => {
               const meta = queueMeta[queueKey]
               const orders = workspace.queues[queueKey].filter((order) => matchesQuery(order, activeSearch))
               return (
-                <section key={queueKey} className={`rounded-2xl border p-3 ${meta.classes}`}>
+                  <section key={queueKey} className={`rounded-2xl border p-4 ${meta.classes}`}>
                   <div className="mb-3 flex items-start justify-between gap-2 px-1">
                     <div>
                       <h2 className="font-display font-bold text-cocoa">{meta.title}</h2>
                       <p className="text-xs text-cocoa/50">{meta.subtitle}</p>
                     </div>
-                    <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-cocoa shadow-sm">{orders.length}</span>
+                    <span className="rounded-lg bg-white px-2.5 py-1 text-xs font-bold text-cocoa shadow-sm">{orders.length}</span>
                   </div>
                   <div className="flex flex-col gap-3">
                     {orders.length === 0 ? (
@@ -414,7 +419,7 @@ export function OrdersPage() {
                           onKeyDown={(event) => {
                             if (event.key === 'Enter') navigate(`/orders/${order.id}`)
                           }}
-                          className={`cursor-pointer rounded-xl border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-2 focus:outline-flame ${isUrgent ? 'border-flame/40 ring-1 ring-flame/20' : 'border-white/80'}`}
+                          className={`cursor-pointer rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-md focus:outline-2 focus:outline-flame ${isUrgent ? 'border-flame/40 ring-1 ring-flame/20' : 'border-cocoa/5'}`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <StatusDot

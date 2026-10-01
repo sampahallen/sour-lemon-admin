@@ -28,14 +28,14 @@ export function Drawer({
             exit={prefersReducedMotion ? undefined : { opacity: 0 }}
           />
           <motion.div
-            className="relative flex h-full w-full max-w-md flex-col overflow-y-auto bg-cream p-6 shadow-xl"
+            className="relative flex h-full w-full max-w-xl flex-col overflow-y-auto bg-[#faf9f6] p-5 shadow-xl sm:p-7"
             initial={prefersReducedMotion ? undefined : { x: '100%' }}
             animate={prefersReducedMotion ? undefined : { x: 0 }}
             exit={prefersReducedMotion ? undefined : { x: '100%' }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold">{title}</h2>
+            <div className="mb-6 flex items-center justify-between border-b border-cocoa/10 pb-4">
+              <h2 className="text-2xl font-bold">{title}</h2>
               <button onClick={onClose} className="rounded-full p-2 text-cocoa/60 hover:bg-cocoa/10" aria-label="Close">
                 ✕
               </button>

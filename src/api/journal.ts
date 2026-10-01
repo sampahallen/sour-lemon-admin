@@ -43,26 +43,37 @@ export interface JournalPostImage {
   createdAt: string
 }
 
+export interface JournalTextRun {
+  text: string
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+}
+
 export interface JournalParagraphBlock {
   type: 'paragraph'
   text: string
+  runs?: JournalTextRun[]
 }
 
 export interface JournalHeadingBlock {
   type: 'heading'
   level: 2 | 3
   text: string
+  runs?: JournalTextRun[]
 }
 
 export interface JournalListBlock {
   type: 'list'
   style: 'ordered' | 'unordered'
   items: string[]
+  itemRuns?: JournalTextRun[][]
 }
 
 export interface JournalQuoteBlock {
   type: 'quote'
   text: string
+  runs?: JournalTextRun[]
   attribution?: string
 }
 
