@@ -127,7 +127,6 @@ export interface JournalPostRecord {
 export interface JournalPostInput {
   categoryId: string
   title: string
-  slug?: string
   excerpt?: string | null
   body?: JournalBody
 }

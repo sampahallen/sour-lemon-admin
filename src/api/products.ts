@@ -27,10 +27,15 @@ export interface ProductDetail extends ProductSummary {
   images: ProductImage[]
 }
 
+export interface BakeryArrangementProduct extends ProductSummary {
+  sortOrder: number | null
+  category: { id: string; name: string; isActive: boolean }
+  isCurrentlyVisible: boolean
+}
+
 export interface ProductInput {
   categoryId: string
   name: string
-  slug?: string
   description?: string | null
   price: string
   isActive?: boolean
@@ -53,6 +58,17 @@ export function listProducts(
 
 export function getProduct(token: string, id: string) {
   return apiRequest<{ product: ProductDetail }>(`/api/products/${id}`, token)
+}
+
+export function getBakeryArrangement(token: string) {
+  return apiRequest<{ products: BakeryArrangementProduct[] }>('/api/products/arrangement', token)
+}
+
+export function reorderBakeryProducts(token: string, productIds: string[]) {
+  return apiRequest<{ productIds: string[] }>('/api/products/reorder', token, {
+    method: 'PATCH',
+    json: { productIds },
+  })
 }
 
 export function createProduct(token: string, input: ProductInput) {

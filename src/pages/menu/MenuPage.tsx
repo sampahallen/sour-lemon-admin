@@ -7,6 +7,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
 import { cn } from '@/utils/cn'
+import { BakeryArrangement } from './BakeryArrangement'
 import { MenuCategoriesDrawer } from './MenuCategoriesDrawer'
 import { ProductDrawer } from './ProductDrawer'
 
@@ -35,6 +36,7 @@ export function MenuPage({ sectionKey, sectionLabel }: MenuPageProps) {
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
   const [isLoadingProducts, setIsLoadingProducts] = useState(false)
   const [editingProductId, setEditingProductId] = useState<string | 'new' | null>(null)
+  const [isArrangementOpen, setIsArrangementOpen] = useState(false)
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<ProductSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -132,6 +134,7 @@ export function MenuPage({ sectionKey, sectionLabel }: MenuPageProps) {
         title={`${sectionLabel} menu`}
         action={
           <div className="flex flex-wrap gap-2">
+            {sectionKey === 'cakes' ? <Button variant="outline" onClick={() => setIsArrangementOpen(true)}>Arrange Everything</Button> : null}
             <Button variant="outline" onClick={() => setIsCategoriesOpen(true)}>Manage categories</Button>
             <Button disabled={!activeCategoryId} onClick={() => setEditingProductId('new')}>Add product</Button>
           </div>
@@ -205,6 +208,13 @@ export function MenuPage({ sectionKey, sectionLabel }: MenuPageProps) {
         onClose={() => setEditingProductId(null)}
         onSaved={() => refreshProducts()}
       />
+      {isArrangementOpen ? (
+        <BakeryArrangement
+          token={token}
+          onClose={() => setIsArrangementOpen(false)}
+          onSaved={() => refreshProducts()}
+        />
+      ) : null}
       <MenuCategoriesDrawer
         key={sectionKey}
         isOpen={isCategoriesOpen}
