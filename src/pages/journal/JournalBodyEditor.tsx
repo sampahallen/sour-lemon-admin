@@ -1,84 +1,58 @@
-import { useRef, useState, type KeyboardEvent } from 'react'
-import { flushSync } from 'react-dom'
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react'
 import {
   deleteJournalPostImage,
   uploadJournalPostImage,
   type JournalBlock,
-  type JournalListBlock,
   type JournalPostImage,
 } from '@/api/journal'
-import { createEmptyBlock } from './journalBlocks'
+import { createImageFigure, createParagraph, readJournalDocument, writeJournalDocument } from './journalDocument'
 
-function updateAt<T>(list: T[], index: number, next: T): T[] {
-  return list.map((item, itemIndex) => (itemIndex === index ? next : item))
-}
+type BlockFormat = 'paragraph' | 'heading-2' | 'heading-3' | 'unordered-list' | 'ordered-list' | 'quote'
+type InlineFormat = 'bold' | 'italic' | 'underline'
+
+const blockTools: { label: string; glyph: string; format: BlockFormat }[] = [
+  { label: 'Text', glyph: 'Aa', format: 'paragraph' },
+  { label: 'Heading', glyph: 'H2', format: 'heading-2' },
+  { label: 'Subheading', glyph: 'H3', format: 'heading-3' },
+  { label: 'Bullets', glyph: '•', format: 'unordered-list' },
+  { label: 'Numbers', glyph: '1.', format: 'ordered-list' },
+  { label: 'Quote', glyph: '“', format: 'quote' },
+]
+const inlineTools: { label: string; glyph: string; format: InlineFormat }[] = [
+  { label: 'Bold', glyph: 'B', format: 'bold' },
+  { label: 'Italic', glyph: 'I', format: 'italic' },
+  { label: 'Underline', glyph: 'U', format: 'underline' },
+]
 
 function altTextFromFileName(file: File) {
   return file.name.replace(/\.[^./\\]+$/, '').replace(/[-_]+/g, ' ').trim() || 'Journal photo'
 }
 
-function autoGrow(el: HTMLTextAreaElement | null) {
-  if (!el) return
-  el.style.height = 'auto'
-  el.style.height = `${el.scrollHeight}px`
+function directBlock(root: HTMLElement, node: Node | null): HTMLElement | null {
+  let current = node instanceof HTMLElement ? node : node?.parentElement
+  while (current && current.parentElement !== root) current = current.parentElement
+  return current?.parentElement === root ? current : null
 }
 
-const paragraphClasses =
-  'w-full resize-none overflow-hidden whitespace-pre-line bg-transparent text-lg leading-8 text-cocoa/80 outline-none placeholder:text-cocoa/30'
-const heading2Classes =
-  'w-full bg-transparent font-display text-3xl font-bold text-cocoa outline-none placeholder:text-cocoa/25 sm:text-4xl'
-const heading3Classes =
-  'w-full bg-transparent font-display text-2xl font-bold text-cocoa outline-none placeholder:text-cocoa/25 sm:text-3xl'
-const listItemClasses = 'w-full bg-transparent text-lg leading-8 text-cocoa/80 outline-none placeholder:text-cocoa/30'
-const quoteTextClasses =
-  'w-full resize-none overflow-hidden bg-transparent font-display text-2xl font-semibold leading-relaxed text-cocoa outline-none placeholder:text-cocoa/30'
-const quoteAttributionClasses =
-  'w-full bg-transparent text-sm font-semibold text-cocoa/50 outline-none placeholder:text-cocoa/30'
-const captionClasses = 'w-full bg-transparent text-center text-sm text-cocoa/55 outline-none placeholder:text-cocoa/30'
-
-const TOOLBAR_ITEMS: { label: string; glyph: string; block: () => JournalBlock }[] = [
-  { label: 'Text', glyph: 'Aa', block: () => createEmptyBlock('paragraph') },
-  { label: 'Heading', glyph: 'H2', block: () => ({ type: 'heading', level: 2, text: '' }) },
-  { label: 'Subheading', glyph: 'H3', block: () => ({ type: 'heading', level: 3, text: '' }) },
-  { label: 'Bullets', glyph: '•', block: () => ({ type: 'list', style: 'unordered', items: [''] }) },
-  { label: 'Numbers', glyph: '1.', block: () => ({ type: 'list', style: 'ordered', items: [''] }) },
-  { label: 'Quote', glyph: '“', block: () => ({ type: 'quote', text: '', attribution: '' }) },
-]
-
-type ToolbarFormat = 'paragraph' | 'heading-2' | 'heading-3' | 'unordered-list' | 'ordered-list' | 'quote'
-
-const blockFormat = (block: JournalBlock | undefined): ToolbarFormat | null => {
-  if (!block || block.type === 'image') return null
-  if (block.type === 'heading') return block.level === 2 ? 'heading-2' : 'heading-3'
-  if (block.type === 'list') return block.style === 'unordered' ? 'unordered-list' : 'ordered-list'
-  return block.type
-}
-
-const blockText = (block: Exclude<JournalBlock, { type: 'image' }>) =>
-  block.type === 'list' ? block.items.join('\n') : block.text
-
-const formatBlock = (
-  block: Exclude<JournalBlock, { type: 'image' }>,
-  format: ToolbarFormat,
-): Exclude<JournalBlock, { type: 'image' }> => {
-  const text = blockText(block)
-  switch (format) {
-    case 'paragraph':
-      return { type: 'paragraph', text }
-    case 'heading-2':
-      return { type: 'heading', level: 2, text }
-    case 'heading-3':
-      return { type: 'heading', level: 3, text }
-    case 'unordered-list':
-    case 'ordered-list':
-      return {
-        type: 'list',
-        style: format === 'unordered-list' ? 'unordered' : 'ordered',
-        items: block.type === 'list' ? block.items : text.split('\n'),
-      }
-    case 'quote':
-      return { type: 'quote', text, attribution: block.type === 'quote' ? block.attribution : '' }
+function formatOf(block: HTMLElement | null): BlockFormat {
+  switch (block?.tagName) {
+    case 'H2': return 'heading-2'
+    case 'H3': return 'heading-3'
+    case 'UL': return 'unordered-list'
+    case 'OL': return 'ordered-list'
+    case 'BLOCKQUOTE': return 'quote'
+    default: return 'paragraph'
   }
+}
+
+function placeCaret(element: HTMLElement) {
+  const selection = document.getSelection()
+  if (!selection) return
+  const range = document.createRange()
+  range.selectNodeContents(element)
+  range.collapse(true)
+  selection.removeAllRanges()
+  selection.addRange(range)
 }
 
 export function JournalBodyEditor({
@@ -96,82 +70,86 @@ export function JournalBodyEditor({
   postId: string
   onImagesChanged: () => Promise<void> | void
 }) {
+  const rootRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const controlRefs = useRef(new Map<string, HTMLElement>())
-  const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const insertionBlockRef = useRef<HTMLElement | null>(null)
+  const rendered = useRef('')
+  const [activeBlock, setActiveBlock] = useState<BlockFormat>('paragraph')
+  const [activeInline, setActiveInline] = useState<Record<InlineFormat, boolean>>({ bold: false, italic: false, underline: false })
   const [uploadedImages, setUploadedImages] = useState<Record<string, JournalPostImage>>({})
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [isDragOver, setIsDragOver] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const contentKey = JSON.stringify(blocks)
 
-  const imagesById: Record<string, JournalPostImage> = { ...uploadedImages }
-  for (const image of bodyImages) imagesById[image.id] = image
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    if (!root || rendered.current === contentKey) return
+    const images = new Map([...bodyImages, ...Object.values(uploadedImages)].map((image) => [image.id, image]))
+    writeJournalDocument(root, blocks, images)
+    rendered.current = contentKey
+  }, [blocks, bodyImages, uploadedImages, contentKey])
 
-  const registerRef = (key: string) => (el: HTMLElement | null) => {
-    if (el) controlRefs.current.set(key, el)
-    else controlRefs.current.delete(key)
+  useEffect(() => {
+    const update = () => {
+      const root = rootRef.current
+      const selection = document.getSelection()
+      if (!root || !selection?.anchorNode || !root.contains(selection.anchorNode)) return
+      setActiveBlock(formatOf(directBlock(root, selection.anchorNode)))
+      setActiveInline({
+        bold: document.queryCommandState('bold'),
+        italic: document.queryCommandState('italic'),
+        underline: document.queryCommandState('underline'),
+      })
+    }
+    document.addEventListener('selectionchange', update)
+    return () => document.removeEventListener('selectionchange', update)
+  }, [])
+
+  const sync = () => {
+    const root = rootRef.current
+    if (!root) return
+    const next = readJournalDocument(root)
+    const key = JSON.stringify(next)
+    if (rendered.current === key) return
+    rendered.current = key
+    onChange(next)
   }
 
-  const updateBlock = (index: number, next: JournalBlock) => onChange(updateAt(blocks, index, next))
-
-  const moveBlock = (index: number, direction: -1 | 1) => {
-    const nextIndex = index + direction
-    if (nextIndex < 0 || nextIndex >= blocks.length) return
-    const reordered = [...blocks]
-    ;[reordered[index], reordered[nextIndex]] = [reordered[nextIndex], reordered[index]]
-    onChange(reordered)
-    if (activeIndex === index) setActiveIndex(nextIndex)
-    else if (activeIndex === nextIndex) setActiveIndex(index)
-  }
-
-  const removeBlock = (index: number) => {
-    const block = blocks[index]
-    onChange(blocks.filter((_, itemIndex) => itemIndex !== index))
-    setActiveIndex((current) => {
-      if (current === null) return null
-      if (current === index) return null
-      return current > index ? current - 1 : current
-    })
-    if (block.type === 'image' && block.imageId) {
-      void deleteJournalPostImage(token, postId, block.imageId).then(() => onImagesChanged())
+  const ensureParagraph = () => {
+    const root = rootRef.current
+    if (!root) return
+    if (!root.hasChildNodes()) {
+      const paragraph = createParagraph()
+      root.append(paragraph)
+      placeCaret(paragraph)
+      sync()
     }
   }
 
-  const focusControl = (key: string) => controlRefs.current.get(key)?.focus()
-
-  // flushSync forces the new block's DOM node to exist before we call .focus(),
-  // all inside this same event handler. Without it, focus would only land on the
-  // new control on a later effect/render pass — leaving the still-focused toolbar
-  // button to eat the next keystroke (Enter/Space activate a focused <button>).
-  const insertBlockAfter = (afterIndex: number, block: JournalBlock, itemIndex?: number) => {
-    const insertAt = afterIndex + 1
-    flushSync(() => {
-      onChange([...blocks.slice(0, insertAt), block, ...blocks.slice(insertAt)])
-    })
-    setActiveIndex(insertAt)
-    focusControl(itemIndex !== undefined ? `${insertAt}:${itemIndex}` : `${insertAt}`)
+  const runCommand = (command: string, value?: string) => {
+    const root = rootRef.current
+    if (!root) return
+    root.focus({ preventScroll: true })
+    ensureParagraph()
+    document.execCommand(command, false, value)
+    sync()
   }
 
-  const toggleFormat = (format: ToolbarFormat) => {
-    const currentIndex = activeIndex
-    const current = currentIndex === null ? undefined : blocks[currentIndex]
-    if (currentIndex === null || !current || current.type === 'image') {
-      const nextBlock = formatBlock({ type: 'paragraph', text: '' }, format)
-      insertBlockAfter(
-        currentIndex ?? blocks.length - 1,
-        nextBlock,
-        nextBlock.type === 'list' ? 0 : undefined,
-      )
-      return
+  const applyBlock = (format: BlockFormat) => {
+    const root = rootRef.current
+    if (!root) return
+    const current = formatOf(directBlock(root, document.getSelection()?.anchorNode ?? null))
+    if (format === 'ordered-list' || format === 'unordered-list') {
+      runCommand(format === 'ordered-list' ? 'insertOrderedList' : 'insertUnorderedList')
+    } else {
+      if (current === 'ordered-list' || current === 'unordered-list') {
+        runCommand(current === 'ordered-list' ? 'insertOrderedList' : 'insertUnorderedList')
+      }
+      runCommand('formatBlock', format === 'heading-2' ? 'h2' : format === 'heading-3' ? 'h3' : format === 'quote' ? 'blockquote' : 'p')
     }
-
-    const nextFormat = blockFormat(current) === format && format !== 'paragraph' ? 'paragraph' : format
-    const nextBlock = formatBlock(current, nextFormat)
-    flushSync(() => updateBlock(currentIndex, nextBlock))
-    focusControl(nextBlock.type === 'list' ? `${currentIndex}:0` : `${currentIndex}`)
+    setActiveBlock(format)
   }
-
-  const appendParagraph = () => insertBlockAfter(blocks.length - 1, createEmptyBlock('paragraph'))
 
   const insertImage = async (file: File) => {
     setUploadError(null)
@@ -182,12 +160,23 @@ export function JournalBodyEditor({
     setIsUploadingImage(true)
     try {
       const { image } = await uploadJournalPostImage(token, postId, file, {
-        role: 'body',
-        altText: altTextFromFileName(file),
-        sortOrder: bodyImages.length,
+        role: 'body', altText: altTextFromFileName(file), sortOrder: bodyImages.length,
       })
       setUploadedImages((current) => ({ ...current, [image.id]: image }))
-      insertBlockAfter(activeIndex ?? blocks.length - 1, { type: 'image', imageId: image.id, caption: '' })
+      const root = rootRef.current
+      if (!root) return
+      const current = insertionBlockRef.current?.parentElement === root
+        ? insertionBlockRef.current
+        : directBlock(root, document.getSelection()?.anchorNode ?? null)
+      insertionBlockRef.current = null
+      const figure = createImageFigure({ type: 'image', imageId: image.id, caption: '' }, image)
+      const paragraph = createParagraph()
+      if (current) current.after(figure, paragraph)
+      else root.append(figure, paragraph)
+      root.focus({ preventScroll: true })
+      placeCaret(paragraph)
+      paragraph.scrollIntoView({ block: 'nearest' })
+      sync()
       void onImagesChanged()
     } catch (caught) {
       setUploadError(caught instanceof Error ? caught.message : 'Could not upload this photo.')
@@ -196,255 +185,118 @@ export function JournalBodyEditor({
     }
   }
 
-  const handleContinueAfter = (index: number) => insertBlockAfter(index, createEmptyBlock('paragraph'))
+  const removeImage = (imageId: string) => {
+    const root = rootRef.current
+    const figure = Array.from(root?.querySelectorAll('figure') ?? []).find((item) => item.dataset.imageId === imageId)
+    if (!figure) return
+    figure.remove()
+    sync()
+    void deleteJournalPostImage(token, postId, imageId).then(() => onImagesChanged())
+  }
 
-  const handleListItemKeyDown = (
-    index: number,
-    itemIndex: number,
-    block: JournalListBlock,
-    event: KeyboardEvent<HTMLInputElement>,
-  ) => {
-    if (event.key === 'Enter') {
+  const keepSelection = (event: MouseEvent<HTMLButtonElement>) => event.preventDefault()
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      const root = rootRef.current
+      if (!root) return
+      const specialBlock = directBlock(root, document.getSelection()?.anchorNode ?? null)
+      if (specialBlock?.tagName !== 'FIGURE' && specialBlock?.tagName !== 'BLOCKQUOTE') return
       event.preventDefault()
-      const items = [...block.items.slice(0, itemIndex + 1), '', ...block.items.slice(itemIndex + 1)]
-      flushSync(() => updateBlock(index, { ...block, items }))
-      focusControl(`${index}:${itemIndex + 1}`)
-    } else if (event.key === 'Backspace' && block.items[itemIndex] === '' && block.items.length > 1) {
-      event.preventDefault()
-      const items = block.items.filter((_, i) => i !== itemIndex)
-      flushSync(() => updateBlock(index, { ...block, items }))
-      focusControl(`${index}:${Math.max(0, itemIndex - 1)}`)
+      const paragraph = createParagraph()
+      specialBlock.after(paragraph)
+      root.focus({ preventScroll: true })
+      placeCaret(paragraph)
+      paragraph.scrollIntoView({ block: 'nearest' })
+      sync()
     }
   }
 
   return (
     <div>
-      <div className="sticky top-20 z-10 mb-5 rounded-2xl border border-cocoa/10 bg-white/95 p-2 shadow-sm backdrop-blur">
-        <p className="px-2 pb-1 text-[0.65rem] font-bold uppercase tracking-[0.14em] text-cocoa/35">Add or format a block</p>
-        <div className="flex flex-wrap items-center gap-1">
-        {TOOLBAR_ITEMS.map((item) => {
-          const format = blockFormat(item.block())!
-          const isActive = blockFormat(activeIndex === null ? undefined : blocks[activeIndex]) === format
-          return (
-            <button
-              key={item.label}
-              type="button"
-              title={isActive && format !== 'paragraph' ? `${item.label} (click to remove)` : item.label}
-              aria-label={item.label}
-              aria-pressed={isActive}
-              onClick={() => toggleFormat(format)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold transition-colors ${
-                isActive
-                  ? 'bg-flame text-white shadow-sm'
-                  : 'text-cocoa/60 hover:bg-flame/10 hover:text-flame'
-              }`}
-            >
-              <span className="font-display font-bold" aria-hidden="true">{item.glyph}</span>
-              <span>{item.label}</span>
-            </button>
-          )
-        })}
-        <button
-          type="button"
-          title="Insert photo"
-          disabled={isUploadingImage}
-          onClick={() => fileInputRef.current?.click()}
-          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-cocoa/60 hover:bg-flame/10 hover:text-flame disabled:opacity-40"
-        >
-          {isUploadingImage ? 'Uploading...' : '+ Photo'}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          className="hidden"
+      <div role="toolbar" aria-label="Journal formatting" className="journal-editor-toolbar mb-7 flex w-full min-w-0 flex-nowrap items-center gap-0 overflow-x-auto overscroll-x-contain whitespace-nowrap rounded-xl border border-cocoa/10 bg-white/95 p-1 shadow-sm backdrop-blur sm:gap-1 sm:p-2">
+        {blockTools.map((tool) => (
+          <button key={tool.format} type="button" title={tool.label} aria-label={tool.label} aria-pressed={activeBlock === tool.format}
+            onMouseDown={keepSelection} onClick={() => applyBlock(tool.format)}
+            className="flex h-10 w-[1.875rem] shrink-0 items-center justify-center rounded-lg text-sm font-semibold text-cocoa/70 hover:bg-butter/40 aria-pressed:bg-butter aria-pressed:text-cocoa sm:w-9 xl:w-auto xl:px-2.5"
+          ><span aria-hidden="true">{tool.glyph}</span><span className="ml-1.5 hidden xl:inline">{tool.label}</span></button>
+        ))}
+        <span className="mx-0.5 h-6 shrink-0 border-l border-cocoa/15 sm:mx-1" aria-hidden="true" />
+        {inlineTools.map((tool) => (
+          <button key={tool.format} type="button" title={tool.label} aria-label={tool.label} aria-pressed={activeInline[tool.format]}
+            onMouseDown={keepSelection} onClick={() => {
+              runCommand(tool.format)
+              setActiveInline((current) => ({ ...current, [tool.format]: document.queryCommandState(tool.format) }))
+            }}
+            className={`flex h-10 w-[1.875rem] shrink-0 items-center justify-center rounded-lg text-base text-cocoa/70 hover:bg-butter/40 aria-pressed:bg-butter aria-pressed:text-cocoa sm:w-9 ${tool.format === 'bold' ? 'font-bold' : tool.format === 'italic' ? 'italic' : 'underline'}`}
+          >{tool.glyph}</button>
+        ))}
+        <span className="mx-0.5 h-6 shrink-0 border-l border-cocoa/15 sm:mx-1" aria-hidden="true" />
+        <button type="button" title="Insert photo" disabled={isUploadingImage} onMouseDown={keepSelection}
+          onClick={() => {
+            const root = rootRef.current
+            insertionBlockRef.current = root ? directBlock(root, document.getSelection()?.anchorNode ?? null) : null
+            fileInputRef.current?.click()
+          }}
+          className="flex h-10 w-[1.875rem] shrink-0 items-center justify-center rounded-lg text-sm font-semibold text-cocoa/70 hover:bg-butter/40 disabled:opacity-40 sm:w-9 xl:w-auto xl:px-2.5"
+        ><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9" r="1.5" /><path d="m4 17 5-5 3.5 3 2.5-2.5L20 18" /></svg><span className="ml-1.5 hidden xl:inline">Photo</span></button>
+        <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0]
             if (file) void insertImage(file)
             event.target.value = ''
-          }}
-        />
-        </div>
+          }} />
       </div>
-
       {uploadError ? <p className="mb-3 text-sm font-semibold text-flame">{uploadError}</p> : null}
-
-      <div
-        className={`flex flex-col gap-6 rounded-2xl p-2 transition-colors ${isDragOver ? 'bg-flame/5 outline-dashed outline-2 outline-flame/40' : ''}`}
-        onDragOver={(event) => {
-          if (event.dataTransfer.types.includes('Files')) {
-            event.preventDefault()
-            setIsDragOver(true)
+      <div ref={rootRef} contentEditable suppressContentEditableWarning role="textbox" aria-label="Journal body"
+        aria-multiline="true" data-placeholder="Start writing…"
+        className={`journal-document min-h-[32rem] rounded-2xl p-3 outline-none ${isDragOver ? 'bg-flame/5 outline-dashed outline-2 outline-flame/40' : ''}`}
+        onFocus={() => {
+          document.execCommand('defaultParagraphSeparator', false, 'p')
+          ensureParagraph()
+        }}
+        onInput={sync}
+        onKeyDown={handleKeyDown}
+        onPaste={(event) => {
+          event.preventDefault()
+          document.execCommand('insertText', false, event.clipboardData.getData('text/plain'))
+        }}
+        onClick={(event) => {
+          const target = event.target
+          if (target instanceof HTMLElement && target.dataset.removeImage) {
+            removeImage(target.dataset.removeImage)
+          } else if (target === event.currentTarget) {
+            const root = rootRef.current
+            if (!root) return
+            const last = root.lastElementChild
+            if (last?.tagName === 'P') {
+              const selection = document.getSelection()
+              if (selection) {
+                const range = document.createRange()
+                range.selectNodeContents(last)
+                range.collapse(false)
+                selection.removeAllRanges()
+                selection.addRange(range)
+              }
+            } else {
+              const paragraph = createParagraph()
+              root.append(paragraph)
+              placeCaret(paragraph)
+              sync()
+            }
           }
+        }}
+        onDragOver={(event) => {
+          if (event.dataTransfer.types.includes('Files')) { event.preventDefault(); setIsDragOver(true) }
         }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={(event) => {
+          if (!event.dataTransfer.files.length) return
           event.preventDefault()
           setIsDragOver(false)
           const file = Array.from(event.dataTransfer.files).find((item) => item.type.startsWith('image/'))
           if (file) void insertImage(file)
         }}
-      >
-        {blocks.length === 0 ? (
-          <button
-            type="button"
-            onClick={() => insertBlockAfter(-1, createEmptyBlock('paragraph'))}
-            className="rounded-xl border-2 border-dashed border-cocoa/15 py-12 text-center text-lg text-cocoa/40 hover:border-flame/40 hover:text-cocoa/60"
-          >
-            <span className="block font-display text-xl font-bold text-cocoa/60">Start your first paragraph</span>
-            <span className="mt-2 block text-sm">Click here to write, or choose a heading, list, quote, or photo above.</span>
-          </button>
-        ) : (
-          blocks.map((block, index) => (
-            <div key={index} className="group relative" onFocus={() => setActiveIndex(index)}>
-              <div className="absolute -left-9 top-0.5 hidden flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 sm:flex">
-                <button
-                  type="button"
-                  title="Move up"
-                  disabled={index === 0}
-                  onClick={() => moveBlock(index, -1)}
-                  className="rounded p-1 text-xs font-bold text-cocoa/35 hover:bg-cocoa/10 hover:text-cocoa disabled:opacity-30"
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  title="Move down"
-                  disabled={index === blocks.length - 1}
-                  onClick={() => moveBlock(index, 1)}
-                  className="rounded p-1 text-xs font-bold text-cocoa/35 hover:bg-cocoa/10 hover:text-cocoa disabled:opacity-30"
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  title="Delete"
-                  onClick={() => removeBlock(index)}
-                  className="rounded p-1 text-xs font-bold text-flame/50 hover:bg-flame/10 hover:text-flame"
-                >
-                  ×
-                </button>
-              </div>
-
-              {block.type === 'paragraph' ? (
-                <textarea
-                  ref={(el) => {
-                    registerRef(`${index}`)(el)
-                    autoGrow(el)
-                  }}
-                  value={block.text}
-                  rows={1}
-                  placeholder="Write here…"
-                  className={paragraphClasses}
-                  onChange={(event) => {
-                    updateBlock(index, { ...block, text: event.target.value })
-                    autoGrow(event.currentTarget)
-                  }}
-                />
-              ) : null}
-
-              {block.type === 'heading' ? (
-                <input
-                  ref={registerRef(`${index}`)}
-                  value={block.text}
-                  placeholder={block.level === 2 ? 'Heading' : 'Subheading'}
-                  className={block.level === 2 ? heading2Classes : heading3Classes}
-                  onChange={(event) => updateBlock(index, { ...block, text: event.target.value })}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      event.preventDefault()
-                      handleContinueAfter(index)
-                    }
-                  }}
-                />
-              ) : null}
-
-              {block.type === 'list' ? (
-                <ul className={`flex flex-col gap-1.5 pl-6 ${block.style === 'ordered' ? 'list-decimal' : 'list-disc'}`}>
-                  {block.items.map((item, itemIndex) => (
-                    <li key={itemIndex}>
-                      <input
-                        ref={registerRef(`${index}:${itemIndex}`)}
-                        value={item}
-                        placeholder="List item"
-                        className={listItemClasses}
-                        onChange={(event) =>
-                          updateBlock(index, { ...block, items: updateAt(block.items, itemIndex, event.target.value) })
-                        }
-                        onKeyDown={(event) => handleListItemKeyDown(index, itemIndex, block, event)}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-
-              {block.type === 'quote' ? (
-                <div className="rounded-r-2xl border-l-4 border-flame bg-butter/25 px-6 py-5">
-                  <textarea
-                    ref={(el) => {
-                      registerRef(`${index}`)(el)
-                      autoGrow(el)
-                    }}
-                    value={block.text}
-                    rows={1}
-                    placeholder="Quote"
-                    className={quoteTextClasses}
-                    onChange={(event) => {
-                      updateBlock(index, { ...block, text: event.target.value })
-                      autoGrow(event.currentTarget)
-                    }}
-                  />
-                  <input
-                    value={block.attribution ?? ''}
-                    placeholder="— Attribution (optional)"
-                    className={`${quoteAttributionClasses} mt-2`}
-                    onChange={(event) => updateBlock(index, { ...block, attribution: event.target.value })}
-                  />
-                </div>
-              ) : null}
-
-              {block.type === 'image' ? (
-                <figure>
-                  {imagesById[block.imageId] ? (
-                    <img
-                      src={imagesById[block.imageId].url}
-                      alt={imagesById[block.imageId].altText}
-                      className="max-h-[28rem] w-full rounded-2xl object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-48 w-full items-center justify-center rounded-2xl bg-cocoa/5 text-sm text-cocoa/40">
-                      Photo unavailable
-                    </div>
-                  )}
-                  <input
-                    ref={registerRef(`${index}`)}
-                    value={block.caption ?? ''}
-                    placeholder="Add a caption…"
-                    className={`${captionClasses} mt-3`}
-                    onChange={(event) => updateBlock(index, { ...block, caption: event.target.value })}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault()
-                        handleContinueAfter(index)
-                      }
-                    }}
-                  />
-                </figure>
-              ) : null}
-            </div>
-          ))
-        )}
-
-        {blocks.length > 0 ? (
-          <button
-            type="button"
-            onClick={appendParagraph}
-            className="rounded-lg py-2 text-left text-cocoa/30 hover:text-cocoa/50"
-          >
-            + Continue with a new paragraph
-          </button>
-        ) : null}
-      </div>
+      />
     </div>
   )
 }

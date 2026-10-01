@@ -21,7 +21,7 @@
   }
 
   body {
-    @apply bg-cream text-cocoa font-body antialiased;
+    @apply bg-[#f7f6f2] text-cocoa font-body antialiased;
   }
 
   h1,
@@ -29,4 +29,58 @@
   h3 {
     @apply font-display;
   }
+
+  :focus-visible {
+    outline: 3px solid var(--color-flame);
+    outline-offset: 2px;
+  }
+
+  input,
+  select,
+  textarea {
+    accent-color: var(--color-flame);
+  }
+}
+.journal-document:empty::before {
+  content: attr(data-placeholder);
+  color: rgb(70 46 34 / 0.3);
+  pointer-events: none;
+}
+.journal-document { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.journal-document > * { scroll-margin-top: 8rem; }
+
+.journal-document > * + * { margin-top: 1.4rem; }
+.journal-document p, .journal-document > div, .journal-document li { color: rgb(70 46 34 / 0.8); font-size: 1.125rem; line-height: 2rem; }
+.journal-document h2, .journal-document h3 { color: var(--color-cocoa); font-family: var(--font-display); font-weight: 700; line-height: 1.2; }
+.journal-document h2 { font-size: 2.25rem; }
+.journal-document h3 { font-size: 1.875rem; }
+.journal-document ul, .journal-document ol { padding-left: 1.5rem; }
+.journal-document ul { list-style-type: disc; }
+.journal-document ol { list-style-type: decimal; }
+.journal-document li + li { margin-top: 0.35rem; }
+.journal-document blockquote { border-left: 4px solid var(--color-flame); border-radius: 0 1rem 1rem 0; background: rgb(255 222 142 / 0.25); padding: 1.25rem 1.5rem; }
+.journal-document blockquote p { color: var(--color-cocoa); font-family: var(--font-display); font-size: 1.5rem; font-weight: 600; }
+.journal-document blockquote cite { display: block; margin-top: 0.5rem; color: rgb(70 46 34 / 0.5); font-size: 0.875rem; font-style: normal; }
+.journal-document blockquote cite:empty::before, .journal-document figcaption:empty::before { content: attr(data-placeholder); opacity: 0.45; }
+.journal-document figure { position: relative; }
+.journal-document figure img { display: block; width: 100%; max-height: 28rem; border-radius: 1rem; object-fit: cover; }
+.journal-document figcaption { min-height: 1.5rem; margin-top: 0.75rem; color: rgb(70 46 34 / 0.55); font-size: 0.875rem; text-align: center; outline: none; }
+.journal-document figure button { display: block; margin: 0.5rem 0 0 auto; color: var(--color-flame); font-size: 0.75rem; font-weight: 700; }
+.journal-document-image-missing { display: grid; min-height: 12rem; place-items: center; border-radius: 1rem; background: rgb(70 46 34 / 0.05); color: rgb(70 46 34 / 0.45); }
+
+.journal-editor-toolbar {
+  position: sticky;
+  top: 4rem;
+  z-index: 10;
+  scrollbar-width: thin;
+}
+
+.journal-title-anchor { scroll-margin-top: 5rem; }
+.journal-editor-anchor { scroll-margin-top: 8rem; }
+
+@media (min-width: 640px) {
+  .journal-editor-toolbar { top: calc(4rem + var(--journal-actions-height, 80px) + 0.5rem); }
+  .journal-title-anchor { scroll-margin-top: calc(5rem + var(--journal-actions-height, 80px)); }
+  .journal-editor-anchor { scroll-margin-top: calc(8rem + var(--journal-actions-height, 80px)); }
+  .journal-document > * { scroll-margin-top: calc(8rem + var(--journal-actions-height, 80px)); }
 }

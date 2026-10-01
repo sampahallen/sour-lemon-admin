@@ -32,8 +32,12 @@ export function CustomCakeRequestsPage() {
   return (
     <div>
       <PageHeader title="Custom Cake Requests" />
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-cocoa/10 bg-white p-5 shadow-sm">
+        <div><h2 className="font-display text-lg font-bold">Your quote queue</h2><p className="mt-1 text-sm text-cocoa/60">Review the brief and reference photos, then prepare a quote.</p></div>
+        {!isLoading ? <span className="rounded-xl bg-butter/35 px-3 py-2 text-xs font-bold text-cocoa">{requests.length} {statusFilter ? statusFilter.replace(/_/g, ' ') : 'requests'}</span> : null}
+      </div>
 
-      <div className="mb-4 flex flex-wrap gap-2 text-sm">
+      <div className="mb-4 flex flex-wrap gap-2 text-sm" aria-label="Filter cake requests by status">
         <button
           className={cn(
             'rounded-full px-3 py-1 font-semibold',
@@ -62,7 +66,7 @@ export function CustomCakeRequestsPage() {
       ) : (
         <DataTable
           columns={[
-            { header: 'Customer', render: (request: CustomCakeRequestSummary) => request.customerName },
+            { header: 'Customer', render: (request: CustomCakeRequestSummary) => <span className="font-bold text-cocoa">{request.customerName}</span> },
             { header: 'Occasion', render: (request: CustomCakeRequestSummary) => request.occasion },
             { header: 'Size', render: (request: CustomCakeRequestSummary) => request.requestedSize },
             {
@@ -74,7 +78,7 @@ export function CustomCakeRequestsPage() {
             {
               header: 'Quote',
               render: (request: CustomCakeRequestSummary) =>
-                request.quotedAmount ? `${request.currency} ${request.quotedAmount}` : '—',
+                request.quotedAmount ? <strong>{request.currency} {request.quotedAmount}</strong> : <span className="font-semibold text-flame">Needs quote</span>,
             },
           ]}
           rows={requests}

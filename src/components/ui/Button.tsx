@@ -35,12 +35,12 @@ export function Button({
   disabled = false,
 }: ButtonProps) {
   const classes = cn(
-    'inline-flex items-center justify-center gap-2 rounded-full font-display font-semibold transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0',
+    'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl font-body font-bold transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-flame',
     disabled && 'pointer-events-none opacity-50',
-    size === 'lg' ? 'px-8 py-4 text-lg' : 'px-6 py-3 text-base',
+    size === 'lg' ? 'px-7 py-3 text-base' : 'px-4 py-2.5 text-sm',
     variant === 'primary'
-      ? 'bg-flame text-cream shadow-[var(--shadow-chunky)] hover:shadow-[var(--shadow-chunky-sm)]'
-      : cn('border-2 bg-transparent', accentStyles[accent]),
+      ? 'bg-flame text-white shadow-sm hover:bg-[#dd5629]'
+      : cn('border bg-white hover:bg-cream/45', accentStyles[accent]),
     className,
   )
 

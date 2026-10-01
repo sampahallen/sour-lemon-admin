@@ -41,10 +41,13 @@ export function SignIn() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-cream px-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-[var(--shadow-chunky)]">
-        <h1 className="mb-1 text-2xl font-bold">Sour Lemon Admin</h1>
-        <p className="mb-6 text-sm text-cocoa/70">Sign in with your admin account.</p>
+    <div className="grid min-h-screen bg-[#f7f6f2] lg:grid-cols-2">
+      <div className="flex items-center justify-center px-5 py-12 sm:px-10">
+      <div className="w-full max-w-md">
+        <div className="mb-10 flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-flame font-display text-2xl font-bold text-white">S</span><span className="font-display text-xl font-bold">Sour Lemon</span></div>
+        <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-flame">Owner workspace</p>
+        <h1 className="mb-2 text-4xl font-bold">Welcome back</h1>
+        <p className="mb-8 text-sm text-cocoa/60">Sign in to manage today's orders and your storefront.</p>
 
         <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1 text-sm font-semibold">
@@ -54,7 +57,7 @@ export function SignIn() {
               type="tel"
               value={phoneNumber}
               onChange={(event) => { setPhoneNumber(event.target.value); validation.changed('phoneNumber') }}
-              className={`rounded-lg border border-cocoa/20 px-3 py-2 font-body text-base font-normal outline-none focus:border-flame ${validation.error('phoneNumber') ? 'border-flame bg-flame/5' : ''}`}
+              className={`rounded-xl border border-cocoa/20 bg-white px-4 py-3 font-body text-base font-normal outline-none focus:border-flame ${validation.error('phoneNumber') ? 'border-flame bg-flame/5' : ''}`}
               placeholder="+233 20 123 4567"
             />
             {validation.error('phoneNumber') ? <span id="sign-in-phoneNumber-error" className="text-xs text-flame">{validation.error('phoneNumber')}</span> : null}
@@ -67,7 +70,7 @@ export function SignIn() {
               type="password"
               value={password}
               onChange={(event) => { setPassword(event.target.value); validation.changed('password') }}
-              className={`rounded-lg border border-cocoa/20 px-3 py-2 font-body text-base font-normal outline-none focus:border-flame ${validation.error('password') ? 'border-flame bg-flame/5' : ''}`}
+              className={`rounded-xl border border-cocoa/20 bg-white px-4 py-3 font-body text-base font-normal outline-none focus:border-flame ${validation.error('password') ? 'border-flame bg-flame/5' : ''}`}
             />
             {validation.error('password') ? <span id="sign-in-password-error" className="text-xs text-flame">{validation.error('password')}</span> : null}
           </label>
@@ -78,6 +81,14 @@ export function SignIn() {
             {isSubmitting ? 'Signing in…' : 'Sign in'}
           </Button>
         </form>
+      </div>
+      </div>
+      <div className="relative hidden overflow-hidden bg-cocoa p-12 text-cream lg:flex lg:flex-col lg:justify-between">
+        <div className="absolute -right-24 top-16 h-80 w-80 rounded-full border-[55px] border-flame/75" />
+        <div className="absolute -bottom-32 left-8 h-96 w-96 rounded-full border-[65px] border-butter/70" />
+        <p className="relative text-xs font-bold uppercase tracking-[0.2em] text-butter">Sour Lemon / Admin</p>
+        <div className="relative max-w-lg"><p className="font-display text-5xl font-bold leading-tight">Good things are happening in the kitchen.</p><p className="mt-5 max-w-sm text-sm leading-relaxed text-cream/70">A clear place to care for every order, cake request, and storefront update.</p></div>
+        <p className="relative text-xs text-cream/55">Made for the people behind every order.</p>
       </div>
     </div>
   )

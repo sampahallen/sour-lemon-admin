@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 import { useAuth } from '@/auth/authContext'
 import { listSiteSections, updateSiteSection, type SiteSection } from '@/api/siteSections'
 
@@ -41,9 +42,8 @@ export function SiteSectionsPage() {
   return (
     <div>
       <PageHeader title="Sections" />
-      <p className="mb-4 max-w-xl text-sm text-cocoa/70">
-        Turn a section on when it's ready to launch. "Coming soon" shows a placeholder for a disabled section instead
-        of hiding it completely.
+      <p className="mb-6 max-w-2xl text-sm leading-relaxed text-cocoa/65">
+        Choose how each part of the storefront appears to customers. Changes take effect when you switch a section.
       </p>
 
       {error ? (
@@ -55,11 +55,14 @@ export function SiteSectionsPage() {
           {error ? 'Try refreshing the page.' : 'No sections yet.'}
         </div>
       ) : (
-        <div className="flex flex-col divide-y divide-cocoa/10 rounded-xl border border-cocoa/10 bg-white">
+        <div className="flex flex-col divide-y divide-cocoa/10 overflow-hidden rounded-2xl border border-cocoa/10 bg-white shadow-sm">
           {sections.map((section) => (
-            <div key={section.id} className="flex flex-wrap items-center justify-between gap-4 p-4">
-              <p className="font-semibold">{section.name}</p>
-              <div className="flex items-center gap-6">
+            <div key={section.id} className="grid gap-5 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div>
+                <div className="flex flex-wrap items-center gap-3"><p className="font-display text-lg font-bold">{section.name}</p><StatusBadge label={section.isEnabled ? 'Live' : section.showComingSoon ? 'Coming soon' : 'Hidden'} tone={section.isEnabled ? 'positive' : section.showComingSoon ? 'warning' : 'neutral'} /></div>
+                <p className="mt-1 text-xs text-cocoa/55">{section.isEnabled ? 'Customers can open this section.' : section.showComingSoon ? 'Customers see a coming soon placeholder.' : 'This section is not shown to customers.'}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-5 rounded-xl bg-[#faf9f6] px-4 py-3">
                 <ToggleSwitch
                   label="Enabled"
                   checked={section.isEnabled}

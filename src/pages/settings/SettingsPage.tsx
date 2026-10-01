@@ -176,8 +176,9 @@ export function SettingsPage() {
   return (
     <div className="pb-28">
       <PageHeader title="Settings" />
-      <form noValidate onSubmit={save} className="flex max-w-2xl flex-col gap-5">
-        <section className="rounded-xl border border-cocoa/10 bg-white p-5">
+      <div className="mb-6 rounded-2xl border border-cocoa/10 bg-white p-5 shadow-sm"><h2 className="font-display text-lg font-bold">Business preferences</h2><p className="mt-1 text-sm text-cocoa/60">Control customer contact, pickup details, payment review, delivery fees, and scheduling.</p></div>
+      <form noValidate onSubmit={save} className="flex max-w-3xl flex-col gap-5">
+        <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
           <label htmlFor="settings-whatsappNumber" className="font-display text-lg font-bold">Business WhatsApp number</label>
           <p className="mb-3 mt-1 text-sm text-cocoa/70">Where customer order and delivery messages are sent.</p>
           <input
@@ -190,7 +191,7 @@ export function SettingsPage() {
           {validation.error('whatsappNumber') ? <p id="settings-whatsappNumber-error" className="mt-2 text-sm text-flame">{validation.error('whatsappNumber')}</p> : null}
         </section>
 
-        <section className="rounded-xl border border-cocoa/10 bg-white p-5">
+        <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
           <label htmlFor="settings-pickupLocation" className="font-display text-lg font-bold">Pickup location</label>
           <p className="mb-3 mt-1 text-sm text-cocoa/70">Kept private and shared only when an administrator sends a ready-for-collection message.</p>
           <textarea
@@ -204,7 +205,7 @@ export function SettingsPage() {
           {validation.error('pickupLocation') ? <p id="settings-pickupLocation-error" className="mt-2 text-sm text-flame">{validation.error('pickupLocation')}</p> : null}
         </section>
 
-        <section className="rounded-xl border border-cocoa/10 bg-white p-5">
+        <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
           <h2 className="font-display text-lg font-bold">Payment review</h2>
           <p className="mb-3 mt-1 text-sm text-cocoa/70">Require a manual double-check before a verified online payment is confirmed.</p>
           <ToggleSwitch
@@ -214,7 +215,7 @@ export function SettingsPage() {
           />
         </section>
 
-        <fieldset className="rounded-xl border border-cocoa/10 bg-white p-5">
+        <fieldset className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
           <legend className="px-1 font-display text-lg font-bold">Delivery fee</legend>
           <p className="mb-3 text-sm text-cocoa/70">Choose whether delivery cost is included in checkout or handled with the rider.</p>
           <div className="grid gap-3 text-sm font-semibold sm:grid-cols-2">
@@ -235,7 +236,7 @@ export function SettingsPage() {
           </div>
         </fieldset>
 
-        <section className="rounded-xl border border-cocoa/10 bg-white p-5">
+        <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
           <h2 className="font-display text-lg font-bold">Menu scheduling</h2>
           <p className="mb-3 mt-1 text-sm text-cocoa/70">Allow menu availability to be scheduled in advance.</p>
           <ToggleSwitch
@@ -245,7 +246,7 @@ export function SettingsPage() {
           />
         </section>
 
-        <div className="sticky bottom-4 z-10 rounded-xl border border-cocoa/10 bg-cream/95 p-4 shadow-lg backdrop-blur">
+        <div className="sticky bottom-4 z-10 rounded-2xl border border-cocoa/10 bg-white/95 p-4 shadow-lg backdrop-blur">
           {saveError ? <p role="alert" className="mb-3 text-sm text-flame">{saveError} Your changes have not been cleared.</p> : null}
           {successMessage ? <p role="status" className="mb-3 text-sm font-semibold text-olive">{successMessage}</p> : null}
           <div className="flex items-center justify-between gap-4">

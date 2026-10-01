@@ -120,6 +120,10 @@ export function JournalPage() {
           </div>
         }
       />
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-cocoa/10 bg-white p-5 shadow-sm">
+        <div><h2 className="font-display text-lg font-bold">Stories and updates</h2><p className="mt-1 text-sm text-cocoa/60">Draft, schedule, and publish stories for the storefront.</p></div>
+        {!isLoading && pagination ? <span className="text-xs font-bold uppercase tracking-wide text-cocoa/45">{pagination.total} posts</span> : null}
+      </div>
 
       {categoriesError ? (
         <p className="mb-4 rounded-lg bg-flame/10 px-3 py-2 text-sm font-semibold text-flame">{categoriesError}</p>
@@ -131,7 +135,7 @@ export function JournalPage() {
         </p>
       ) : null}
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3" aria-label="Journal filters">
         <div className="flex flex-wrap gap-2 text-sm">
           <button
             className={cn(
@@ -195,7 +199,7 @@ export function JournalPage() {
                   )
                 },
               },
-              { header: 'Title', render: (post: JournalPostSummary) => post.title },
+              { header: 'Title', render: (post: JournalPostSummary) => <span className="font-bold text-cocoa">{post.title}</span> },
               { header: 'Category', render: (post: JournalPostSummary) => post.category.name },
               {
                 header: 'Status',

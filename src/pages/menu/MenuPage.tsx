@@ -5,6 +5,7 @@ import { deleteProduct, listProducts, updateProduct, type ProductSummary } from 
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { PageHeader } from '@/components/ui/PageHeader'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
 import { cn } from '@/utils/cn'
 import { BakeryArrangement } from './BakeryArrangement'
@@ -140,6 +141,10 @@ export function MenuPage({ sectionKey, sectionLabel }: MenuPageProps) {
           </div>
         }
       />
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-cocoa/10 bg-white p-5 shadow-sm">
+        <div><h2 className="font-display text-lg font-bold">{sectionLabel} catalog</h2><p className="mt-1 text-sm text-cocoa/60">Manage product details, customer visibility, and availability.</p></div>
+        <div className="flex gap-3 text-xs font-bold text-cocoa/55"><span>{categories.length} categories</span><span>{products.length} in selected category</span></div>
+      </div>
 
       {error ? <p className="mb-4 rounded-lg bg-flame/10 px-3 py-2 text-sm font-semibold text-flame">{sectionLabel}: {error}</p> : null}
 
@@ -151,13 +156,13 @@ export function MenuPage({ sectionKey, sectionLabel }: MenuPageProps) {
         </div>
       ) : (
         <>
-          <div className="mb-4 flex flex-wrap gap-2 rounded-2xl bg-cocoa/10 p-1 text-sm font-semibold">
+          <div className="mb-5 flex flex-wrap gap-2 border-b border-cocoa/10 pb-3 text-sm font-semibold" aria-label={`${sectionLabel} categories`}>
             {categories.map((category) => (
               <button
                 key={category.id}
                 className={cn(
-                  'rounded-full px-4 py-1.5',
-                  activeCategoryId === category.id ? 'bg-white shadow' : 'text-cocoa/60',
+                  'rounded-lg px-4 py-2',
+                  activeCategoryId === category.id ? 'bg-cocoa text-white shadow-sm' : 'bg-white text-cocoa/60 hover:text-cocoa',
                 )}
                 onClick={() => setActiveCategoryId(category.id)}
               >
@@ -173,20 +178,20 @@ export function MenuPage({ sectionKey, sectionLabel }: MenuPageProps) {
               No {sectionLabel} products in this category yet.
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {products.map((product) => (
-                <div key={product.id} className="overflow-hidden rounded-xl border border-cocoa/10 bg-white">
-                  <div className="flex h-40 items-center justify-center bg-cocoa/5">
+                <div key={product.id} className="overflow-hidden rounded-2xl border border-cocoa/10 bg-white shadow-sm transition-shadow hover:shadow-md">
+                  <div className="flex h-48 items-center justify-center bg-cocoa/5">
                     {product.coverImageUrl ? (
                       <img src={product.coverImageUrl} alt={product.name} className="h-full w-full object-cover" />
                     ) : <span className="text-xs text-cocoa/40">No photo</span>}
                   </div>
                   <div className="p-4">
-                    <p className="font-semibold">{product.name}</p>
-                    <p className="text-sm font-semibold text-flame">{product.currency} {product.price}</p>
+                    <div className="flex items-start justify-between gap-2"><p className="min-w-0 font-display text-lg font-bold leading-tight">{product.name}</p><StatusBadge label={product.isActive ? 'Visible' : 'Hidden'} tone={product.isActive ? 'positive' : 'neutral'} /></div>
+                    <p className="mt-2 text-sm font-bold text-cocoa">{product.currency} {product.price}</p>
                     <p className="mt-1 text-xs text-cocoa/50">{availabilityLabel(product)}</p>
-                    <div className="mt-3 flex items-center justify-between">
-                      <ToggleSwitch checked={product.isActive} onChange={(next) => void toggleProduct(product, next)} />
+                    <div className="mt-4 flex items-center justify-between border-t border-cocoa/10 pt-3">
+                      <ToggleSwitch label="Show" checked={product.isActive} onChange={(next) => void toggleProduct(product, next)} />
                       <div className="flex gap-2 text-xs">
                         <button className="font-semibold text-flame" onClick={() => setEditingProductId(product.id)}>Edit</button>
                         <button className="font-semibold text-cocoa/60" onClick={() => setPendingDelete(product)}>Delete</button>

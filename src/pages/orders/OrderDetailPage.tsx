@@ -178,8 +178,9 @@ export function OrderDetailPage() {
 
       {error ? <p className="mb-4 rounded-lg bg-flame/10 px-3 py-2 text-sm font-semibold text-flame">{error}</p> : null}
 
-      <section className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-cocoa/10 bg-white px-5 py-4 shadow-sm">
+      <section className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-cocoa/10 bg-white px-5 py-5 shadow-sm">
         <div className="min-w-0">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider text-cocoa/45">Customer</p>
           <p className="truncate font-display text-lg font-bold text-cocoa">{order.customerName}</p>
           <a href={`tel:${order.phoneNumber}`} className="text-sm text-cocoa/55 hover:text-flame">{order.phoneNumber}</a>
         </div>
@@ -191,7 +192,7 @@ export function OrderDetailPage() {
         </div>
       </section>
 
-      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-5">
           <section className="rounded-2xl border border-cocoa/10 bg-white p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">

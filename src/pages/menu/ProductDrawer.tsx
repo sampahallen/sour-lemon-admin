@@ -286,13 +286,13 @@ export function ProductDrawer({
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title={product ? 'Edit product' : 'Add product'}>
       {isLoading ? <p className="text-cocoa/60">Loading product…</p> : (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
           {error ? <p className="rounded-lg bg-flame/10 px-3 py-2 text-sm font-semibold text-flame">{error}</p> : null}
           {notice ? <p className="rounded-lg bg-olive/10 px-3 py-2 text-sm font-semibold text-olive">{notice}</p> : null}
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3 rounded-2xl border border-cocoa/10 bg-white p-5">
             <div>
-              <h3 className="text-sm font-bold">Photos</h3>
+              <h3 className="font-display text-lg font-bold">Photos</h3>
               <p className="text-xs text-cocoa/50">The first photo is shown as the product cover.</p>
               {photoError ? <p id="product-photos-error" role="alert" className="mt-1 text-xs text-flame">{photoError}</p> : null}
             </div>
@@ -369,6 +369,7 @@ export function ProductDrawer({
             </div>
           </div>
 
+          <p className="mb-[-0.5rem] text-xs font-bold uppercase tracking-wider text-cocoa/45">Product details</p>
           <label className="flex flex-col gap-1 text-sm font-semibold">
             Category
             <select
@@ -419,7 +420,7 @@ export function ProductDrawer({
             />
             {validation.error('price') ? <span id="product-price-error" className="text-xs font-medium text-flame">{validation.error('price')}</span> : null}
           </label>
-          <div className="rounded-xl border border-cocoa/15">
+          <div className="rounded-2xl border border-cocoa/10 bg-white">
             <button
               type="button"
               aria-expanded={isScheduleOpen}
@@ -473,7 +474,7 @@ export function ProductDrawer({
               </div>
             ) : null}
           </div>
-          <label className="flex items-center gap-2 text-sm font-semibold">
+          <label className="flex items-center gap-2 rounded-xl border border-cocoa/10 bg-white p-4 text-sm font-semibold">
             <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} />
             Show to customers
           </label>
