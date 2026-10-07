@@ -8,6 +8,7 @@ const NAV_GROUPS = [
     label: 'Operations',
     items: [
       { to: '/orders', label: 'Orders' },
+      { to: '/payment-proofs', label: 'Payment proofs' },
       { to: '/custom-cakes', label: 'Custom Cakes' },
       { to: '/delivery-areas', label: 'Delivery Areas' },
     ],

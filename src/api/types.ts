@@ -25,7 +25,7 @@ export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
 export const FULFILLMENT_TYPES = ['pickup', 'customer_rider', 'sour_lemon_delivery'] as const
 export type FulfillmentType = (typeof FULFILLMENT_TYPES)[number]
 
-export const PAYMENT_PROVIDERS = ['paystack', 'cash'] as const
+export const PAYMENT_PROVIDERS = ['paystack', 'cash', 'manual_momo'] as const
 export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number]
 
 export const PAYMENT_METHODS = ['card', 'momo', 'cash'] as const

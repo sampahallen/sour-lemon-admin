@@ -9,12 +9,15 @@ import {
   getCustomCakeRequest,
   quoteCustomCakeRequest,
   rejectCustomCakeRequest,
+  getCakePaymentLink,
+  rotateCakePaymentLink,
   type CustomCakeRequestDetail,
 } from '@/api/customCakeRequests'
 import { customCakeStatusTone } from './customCakeStatus'
 import { getCustomCakeWhatsAppOptions } from '@/api/whatsapp'
 import { WhatsAppComposer } from '@/components/whatsapp/WhatsAppComposer'
 import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
+import { PaymentProofReview } from '@/components/PaymentProofReview'
 
 export function CustomCakeRequestDetailPage() {
   const { requestId } = useParams()
@@ -27,6 +30,7 @@ export function CustomCakeRequestDetailPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [whatsappTemplateId, setWhatsappTemplateId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [paymentLink, setPaymentLink] = useState<string | null>(null)
   const validateQuote = (): FieldErrors<'quotedAmount'> => {
     if (!quotedAmount.trim()) return { quotedAmount: 'Enter a quote amount.' }
     if (!/^\d+(?:\.\d{1,2})?$/.test(quotedAmount.trim()) || Number(quotedAmount) < 0.01 || Number(quotedAmount) > 999_999_999.99) {
@@ -112,6 +116,7 @@ export function CustomCakeRequestDetailPage() {
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <section className="rounded-2xl border border-cocoa/10 bg-white p-5 shadow-sm sm:p-7">
+          {request.quotedAmount ? <div className="mb-5"><PaymentProofReview proofs={request.paymentProofs} onReviewed={load} /></div> : null}
           <p className="mb-1 text-xs font-bold uppercase tracking-wider text-cocoa/45">Customer brief</p>
           <h2 className="mb-4 font-display text-2xl font-bold">{request.occasion || 'Custom cake'}</h2>
           <StatusBadge label={request.status} tone={customCakeStatusTone(request.status)} />
@@ -142,6 +147,11 @@ export function CustomCakeRequestDetailPage() {
               {request.quoteExpiresAt ? <p className="mt-1 text-xs text-cocoa/60">Expires {new Date(request.quoteExpiresAt).toLocaleString()}</p> : null}
             </div>
           ) : null}
+          {request.quotedAmount && ['quoted', 'awaiting_payment'].includes(request.status) ? <div className="mb-4 grid gap-2">
+            <Button variant="outline" onClick={() => void getCakePaymentLink(token, request.id).then(({ url }) => setPaymentLink(url)).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : 'Could not get link'))}>Show payment link</Button>
+            {paymentLink && <><input aria-label="Cake payment link" readOnly value={paymentLink} className="w-full rounded-lg border border-cocoa/20 p-2 text-xs" /><Button variant="outline" onClick={() => void navigator.clipboard.writeText(paymentLink)}>Copy link</Button></>}
+            <button className="text-xs text-cocoa/50 underline" onClick={() => void rotateCakePaymentLink(token, request.id).then(({ url }) => setPaymentLink(url)).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : 'Could not rotate link'))}>Revoke old link and create a new one</button>
+          </div> : null}
 
           {['submitted', 'quoted'].includes(request.status) ? (
             <div className="mb-4 flex flex-col gap-2">

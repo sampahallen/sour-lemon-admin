@@ -16,6 +16,9 @@ import { normalizePhoneNumber } from '@/utils/phoneNumber'
 import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 
 interface SettingsValues {
+  momoPaymentNumber: string
+  momoRecipientName: string
+  momoNetwork: string
   whatsappNumber: string
   pickupLocation: string
   manualPaymentReview: boolean
@@ -24,6 +27,9 @@ interface SettingsValues {
 }
 
 const defaults: SettingsValues = {
+  momoPaymentNumber: '',
+  momoRecipientName: '',
+  momoNetwork: '',
   whatsappNumber: '',
   pickupLocation: '',
   manualPaymentReview: true,
@@ -34,6 +40,9 @@ const defaults: SettingsValues = {
 const toValues = (settings: AppSetting[]): SettingsValues => {
   const values = { ...defaults }
   for (const setting of settings) {
+    if (setting.key === APP_SETTING_KEYS.momoPaymentNumber) values.momoPaymentNumber = (setting.value as string | null) ?? ''
+    if (setting.key === APP_SETTING_KEYS.momoRecipientName) values.momoRecipientName = (setting.value as string | null) ?? ''
+    if (setting.key === APP_SETTING_KEYS.momoNetwork) values.momoNetwork = (setting.value as string | null) ?? ''
     if (setting.key === APP_SETTING_KEYS.businessWhatsappNumber) values.whatsappNumber = (setting.value as string | null) ?? ''
     if (setting.key === APP_SETTING_KEYS.pickupLocation) values.pickupLocation = (setting.value as string | null) ?? ''
     if (setting.key === APP_SETTING_KEYS.manualPaymentReview) values.manualPaymentReview = setting.value as boolean
@@ -117,7 +126,16 @@ export function SettingsPage() {
     event.preventDefault()
     if (!isDirty || !validation.submit()) return
 
-    const updates: AppSettingUpdate[] = []
+  const updates: AppSettingUpdate[] = []
+    if (values.momoPaymentNumber !== savedValues.momoPaymentNumber) {
+      updates.push({ key: APP_SETTING_KEYS.momoPaymentNumber, value: values.momoPaymentNumber.trim() ? normalizePhoneNumber(values.momoPaymentNumber) : null })
+    }
+    if (values.momoRecipientName !== savedValues.momoRecipientName) {
+      updates.push({ key: APP_SETTING_KEYS.momoRecipientName, value: values.momoRecipientName.trim() || null })
+    }
+    if (values.momoNetwork !== savedValues.momoNetwork) {
+      updates.push({ key: APP_SETTING_KEYS.momoNetwork, value: values.momoNetwork.trim() || null })
+    }
     if (values.whatsappNumber !== savedValues.whatsappNumber) {
       updates.push({ key: APP_SETTING_KEYS.businessWhatsappNumber, value: normalizedWhatsappNumber })
     }
@@ -179,6 +197,15 @@ export function SettingsPage() {
       <div className="mb-6 rounded-2xl border border-cocoa/10 bg-white p-5 shadow-sm"><h2 className="font-display text-lg font-bold">Business preferences</h2><p className="mt-1 text-sm text-cocoa/60">Control customer contact, pickup details, payment review, delivery fees, and scheduling.</p></div>
       <form noValidate onSubmit={save} className="flex max-w-3xl flex-col gap-5">
         <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
+          <h2 className="font-display text-lg font-bold">Mobile Money payment</h2>
+          <p className="mb-3 mt-1 text-sm text-cocoa/70">Customers copy these details and pay outside the site. Verify the payment in your account before confirming an order.</p>
+          <div className="grid gap-3">
+            <input aria-label="Mobile Money number" className={fieldClassName} placeholder="Mobile Money number" value={values.momoPaymentNumber} onChange={(event) => setValue('momoPaymentNumber', event.target.value)} />
+            <input aria-label="Recipient name" className={fieldClassName} placeholder="Recipient name" value={values.momoRecipientName} onChange={(event) => setValue('momoRecipientName', event.target.value)} />
+            <input aria-label="Mobile Money network" className={fieldClassName} placeholder="Network (for example MTN)" value={values.momoNetwork} onChange={(event) => setValue('momoNetwork', event.target.value)} />
+          </div>
+        </section>
+        <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
           <label htmlFor="settings-whatsappNumber" className="font-display text-lg font-bold">Business WhatsApp number</label>
           <p className="mb-3 mt-1 text-sm text-cocoa/70">Where customer order and delivery messages are sent.</p>
           <input
@@ -206,10 +233,10 @@ export function SettingsPage() {
         </section>
 
         <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
-          <h2 className="font-display text-lg font-bold">Payment review</h2>
-          <p className="mb-3 mt-1 text-sm text-cocoa/70">Require a manual double-check before a verified online payment is confirmed.</p>
+          <h2 className="font-display text-lg font-bold">Legacy Paystack review</h2>
+          <p className="mb-3 mt-1 text-sm text-cocoa/70">Controls the second check for existing Paystack payments. Mobile Money transfers always require owner verification.</p>
           <ToggleSwitch
-            label={values.manualPaymentReview ? 'Manual review required' : 'Auto-confirm verified payments'}
+            label={values.manualPaymentReview ? 'Second check required' : 'No second check'}
             checked={values.manualPaymentReview}
             onChange={(next) => setValue('manualPaymentReview', next)}
           />

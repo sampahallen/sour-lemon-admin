@@ -8,6 +8,9 @@ export const APP_SETTING_KEYS = {
   manualPaymentReview: 'manual_payment_review',
   deliveryFeeMode: 'delivery_fee_mode',
   menuSchedulingEnabled: 'menu_scheduling_enabled',
+  momoPaymentNumber: 'momo_payment_number',
+  momoRecipientName: 'momo_recipient_name',
+  momoNetwork: 'momo_network',
 } as const
 
 export type AppSettingKey = (typeof APP_SETTING_KEYS)[keyof typeof APP_SETTING_KEYS]
@@ -18,6 +21,9 @@ export interface AppSettingValueMap {
   manual_payment_review: boolean
   delivery_fee_mode: DeliveryFeeMode
   menu_scheduling_enabled: boolean
+  momo_payment_number: string | null
+  momo_recipient_name: string | null
+  momo_network: string | null
 }
 
 export type AppSettingUpdate = {

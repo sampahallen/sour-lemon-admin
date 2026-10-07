@@ -75,6 +75,7 @@ export const orders: OrderDetail[] = [
       paidAt: now(),
     },
     allowedTransitions: ['preparing', 'cancelled'],
+    paymentProofs: [],
   },
   {
     id: id(),
@@ -125,6 +126,7 @@ export const orders: OrderDetail[] = [
       paidAt: now(),
     },
     allowedTransitions: ['ready_for_pickup'],
+    paymentProofs: [],
   },
   {
     id: id(),
@@ -165,6 +167,7 @@ export const orders: OrderDetail[] = [
       paidAt: null,
     },
     allowedTransitions: ['preparing', 'cancelled'],
+    paymentProofs: [],
   },
 ]
 

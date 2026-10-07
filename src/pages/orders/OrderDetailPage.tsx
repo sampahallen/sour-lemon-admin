@@ -17,6 +17,7 @@ import { useOrderUpdates } from '@/hooks/useOrderUpdates'
 import { getOrderWhatsAppOptions } from '@/api/whatsapp'
 import { WhatsAppComposer } from '@/components/whatsapp/WhatsAppComposer'
 import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
+import { PaymentProofReview } from '@/components/PaymentProofReview'
 import {
   orderStatusLabel,
   orderStatusTone,
@@ -194,6 +195,7 @@ export function OrderDetailPage() {
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-5">
+          {order.payment?.provider === 'manual_momo' ? <PaymentProofReview proofs={order.paymentProofs} onReviewed={() => load(true)} /> : null}
           <section className="rounded-2xl border border-cocoa/10 bg-white p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -351,7 +353,7 @@ export function OrderDetailPage() {
                 <p className="mt-0.5 font-display text-base font-bold text-cocoa">{order.payment.paymentName}</p>
               </div>
             ) : null}
-            {order.paymentDisplayStatus === 'needs_review' ? <p className="mt-1 text-xs font-semibold text-violet-700">Paystack verified this payment. It needs your confirmation.</p> : null}
+            {order.paymentDisplayStatus === 'needs_review' ? <p className="mt-1 text-xs font-semibold text-violet-700">Payment needs your confirmation.</p> : null}
             {order.paymentDisplayStatus === 'cash_due' ? <p className="mt-1 text-xs font-semibold text-amber-700">Record the cash when the customer collects.</p> : null}
             {order.paymentDisplayStatus === 'failed' ? <p className="mt-1 text-xs font-semibold text-flame">The online payment failed.</p> : null}
           </div>
