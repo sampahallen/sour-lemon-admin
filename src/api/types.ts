@@ -41,9 +41,6 @@ export const CUSTOM_CAKE_STATUSES = [
 ] as const
 export type CustomCakeStatus = (typeof CUSTOM_CAKE_STATUSES)[number]
 
-export const DELIVERY_FEE_MODES = ['included', 'rider'] as const
-export type DeliveryFeeMode = (typeof DELIVERY_FEE_MODES)[number]
-
 export const JOURNAL_POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'] as const
 export type JournalPostStatus = (typeof JOURNAL_POST_STATUSES)[number]
 
@@ -53,10 +50,13 @@ export type JournalImageRole = (typeof JOURNAL_IMAGE_ROLES)[number]
 export interface DeliveryAddressSnapshot {
   recipientName: string
   phoneNumber: string
+  area?: string
   addressLine1: string
   addressLine2?: string
   city: string
   landmark?: string
+  digitalAddress?: string
+  riderFeeSeparate?: boolean
   deliveryAreaName?: string
 }
 

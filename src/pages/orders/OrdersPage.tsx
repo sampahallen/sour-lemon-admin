@@ -120,7 +120,8 @@ const matchesQuery = (order: WorkspaceOrder, query: string) => {
   return (
     order.orderNumber.toLowerCase().includes(needle) ||
     order.customerName.toLowerCase().includes(needle) ||
-    order.phoneNumber.toLowerCase().includes(needle)
+    order.phoneNumber.toLowerCase().includes(needle) ||
+    Boolean(order.deliveryAreaName?.toLowerCase().includes(needle))
   )
 }
 
@@ -387,12 +388,16 @@ export function OrdersPage() {
                 </div>
               </div>
             </div>
-            <div className="grid items-start gap-4 md:grid-cols-2 2xl:grid-cols-4">
+            <div
+              role="region"
+              aria-label="Active order stages"
+              className="order-board grid grid-cols-1 items-start gap-4 sm:grid-cols-2 xl:grid-cols-4"
+            >
             {fulfillmentQueueKeys.map((queueKey) => {
               const meta = queueMeta[queueKey]
               const orders = workspace.queues[queueKey].filter((order) => matchesQuery(order, activeSearch))
               return (
-                  <section key={queueKey} className={`rounded-2xl border p-4 ${meta.classes}`}>
+                  <section key={queueKey} className={`min-w-0 rounded-2xl border p-3 lg:p-4 ${meta.classes}`}>
                   <div className="mb-3 flex items-start justify-between gap-2 px-1">
                     <div>
                       <h2 className="font-display font-bold text-cocoa">{meta.title}</h2>
@@ -419,7 +424,7 @@ export function OrdersPage() {
                           onKeyDown={(event) => {
                             if (event.key === 'Enter') navigate(`/orders/${order.id}`)
                           }}
-                          className={`cursor-pointer rounded-xl border bg-white p-4 shadow-sm transition hover:shadow-md focus:outline-2 focus:outline-flame ${isUrgent ? 'border-flame/40 ring-1 ring-flame/20' : 'border-cocoa/5'}`}
+                          className={`cursor-pointer rounded-xl border bg-white p-3 shadow-sm transition hover:shadow-md focus:outline-2 focus:outline-flame lg:p-4 ${isUrgent ? 'border-flame/40 ring-1 ring-flame/20' : 'border-cocoa/5'}`}
                         >
                           <div className="flex items-start justify-between gap-2">
                             <StatusDot
@@ -442,9 +447,9 @@ export function OrdersPage() {
                             <span className="min-w-0 truncate font-semibold text-cocoa/75">{order.customerName}</span>
                             <span className="min-w-0 truncate text-right text-cocoa/50">{orderLocation(order)}</span>
                           </div>
-                          <div className="mt-3 flex items-center justify-between text-xs text-cocoa/55">
-                            <span className="capitalize">{order.fulfillmentType.replace(/_/g, ' ')}</span>
-                            <span className="font-bold text-cocoa">{formatMoney(order.total, order.currency)}</span>
+                          <div className="mt-3 flex items-center justify-between gap-2 text-xs text-cocoa/55">
+                            <span className="min-w-0 truncate capitalize">{order.fulfillmentType.replace(/_/g, ' ')}</span>
+                            <span className="shrink-0 whitespace-nowrap font-bold text-cocoa">{formatMoney(order.total, order.currency)}</span>
                           </div>
                           {paymentMessage ? (
                             <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-800">

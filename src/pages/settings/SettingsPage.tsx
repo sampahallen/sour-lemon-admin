@@ -8,7 +8,6 @@ import {
   type AppSetting,
   type AppSettingUpdate,
 } from '@/api/appSettings'
-import type { DeliveryFeeMode } from '@/api/types'
 import { Button } from '@/components/ui/Button'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
@@ -21,9 +20,12 @@ interface SettingsValues {
   momoNetwork: string
   whatsappNumber: string
   pickupLocation: string
-  manualPaymentReview: boolean
-  deliveryFeeMode: DeliveryFeeMode
   menuSchedulingEnabled: boolean
+  checkoutPickupEnabled: boolean
+  checkoutCustomerRiderEnabled: boolean
+  checkoutDeliveryEnabled: boolean
+  checkoutMomoEnabled: boolean
+  checkoutCashEnabled: boolean
 }
 
 const defaults: SettingsValues = {
@@ -32,9 +34,12 @@ const defaults: SettingsValues = {
   momoNetwork: '',
   whatsappNumber: '',
   pickupLocation: '',
-  manualPaymentReview: true,
-  deliveryFeeMode: 'rider',
   menuSchedulingEnabled: false,
+  checkoutPickupEnabled: true,
+  checkoutCustomerRiderEnabled: true,
+  checkoutDeliveryEnabled: true,
+  checkoutMomoEnabled: true,
+  checkoutCashEnabled: true,
 }
 
 const toValues = (settings: AppSetting[]): SettingsValues => {
@@ -45,9 +50,12 @@ const toValues = (settings: AppSetting[]): SettingsValues => {
     if (setting.key === APP_SETTING_KEYS.momoNetwork) values.momoNetwork = (setting.value as string | null) ?? ''
     if (setting.key === APP_SETTING_KEYS.businessWhatsappNumber) values.whatsappNumber = (setting.value as string | null) ?? ''
     if (setting.key === APP_SETTING_KEYS.pickupLocation) values.pickupLocation = (setting.value as string | null) ?? ''
-    if (setting.key === APP_SETTING_KEYS.manualPaymentReview) values.manualPaymentReview = setting.value as boolean
-    if (setting.key === APP_SETTING_KEYS.deliveryFeeMode) values.deliveryFeeMode = setting.value as DeliveryFeeMode
     if (setting.key === APP_SETTING_KEYS.menuSchedulingEnabled) values.menuSchedulingEnabled = setting.value as boolean
+    if (setting.key === APP_SETTING_KEYS.checkoutPickupEnabled) values.checkoutPickupEnabled = setting.value as boolean
+    if (setting.key === APP_SETTING_KEYS.checkoutCustomerRiderEnabled) values.checkoutCustomerRiderEnabled = setting.value as boolean
+    if (setting.key === APP_SETTING_KEYS.checkoutDeliveryEnabled) values.checkoutDeliveryEnabled = setting.value as boolean
+    if (setting.key === APP_SETTING_KEYS.checkoutMomoEnabled) values.checkoutMomoEnabled = setting.value as boolean
+    if (setting.key === APP_SETTING_KEYS.checkoutCashEnabled) values.checkoutCashEnabled = setting.value as boolean
   }
   return values
 }
@@ -126,7 +134,7 @@ export function SettingsPage() {
     event.preventDefault()
     if (!isDirty || !validation.submit()) return
 
-  const updates: AppSettingUpdate[] = []
+    const updates: AppSettingUpdate[] = []
     if (values.momoPaymentNumber !== savedValues.momoPaymentNumber) {
       updates.push({ key: APP_SETTING_KEYS.momoPaymentNumber, value: values.momoPaymentNumber.trim() ? normalizePhoneNumber(values.momoPaymentNumber) : null })
     }
@@ -142,14 +150,23 @@ export function SettingsPage() {
     if (values.pickupLocation !== savedValues.pickupLocation) {
       updates.push({ key: APP_SETTING_KEYS.pickupLocation, value: values.pickupLocation.trim() || null })
     }
-    if (values.manualPaymentReview !== savedValues.manualPaymentReview) {
-      updates.push({ key: APP_SETTING_KEYS.manualPaymentReview, value: values.manualPaymentReview })
-    }
-    if (values.deliveryFeeMode !== savedValues.deliveryFeeMode) {
-      updates.push({ key: APP_SETTING_KEYS.deliveryFeeMode, value: values.deliveryFeeMode })
-    }
     if (values.menuSchedulingEnabled !== savedValues.menuSchedulingEnabled) {
       updates.push({ key: APP_SETTING_KEYS.menuSchedulingEnabled, value: values.menuSchedulingEnabled })
+    }
+    if (values.checkoutPickupEnabled !== savedValues.checkoutPickupEnabled) {
+      updates.push({ key: APP_SETTING_KEYS.checkoutPickupEnabled, value: values.checkoutPickupEnabled })
+    }
+    if (values.checkoutCustomerRiderEnabled !== savedValues.checkoutCustomerRiderEnabled) {
+      updates.push({ key: APP_SETTING_KEYS.checkoutCustomerRiderEnabled, value: values.checkoutCustomerRiderEnabled })
+    }
+    if (values.checkoutDeliveryEnabled !== savedValues.checkoutDeliveryEnabled) {
+      updates.push({ key: APP_SETTING_KEYS.checkoutDeliveryEnabled, value: values.checkoutDeliveryEnabled })
+    }
+    if (values.checkoutMomoEnabled !== savedValues.checkoutMomoEnabled) {
+      updates.push({ key: APP_SETTING_KEYS.checkoutMomoEnabled, value: values.checkoutMomoEnabled })
+    }
+    if (values.checkoutCashEnabled !== savedValues.checkoutCashEnabled) {
+      updates.push({ key: APP_SETTING_KEYS.checkoutCashEnabled, value: values.checkoutCashEnabled })
     }
 
     setIsSaving(true)
@@ -194,8 +211,26 @@ export function SettingsPage() {
   return (
     <div className="pb-28">
       <PageHeader title="Settings" />
-      <div className="mb-6 rounded-2xl border border-cocoa/10 bg-white p-5 shadow-sm"><h2 className="font-display text-lg font-bold">Business preferences</h2><p className="mt-1 text-sm text-cocoa/60">Control customer contact, pickup details, payment review, delivery fees, and scheduling.</p></div>
+      <div className="mb-6 rounded-2xl border border-cocoa/10 bg-white p-5 shadow-sm"><h2 className="font-display text-lg font-bold">Business preferences</h2><p className="mt-1 text-sm text-cocoa/60">Control checkout, customer contact, pickup details, and scheduling.</p></div>
       <form noValidate onSubmit={save} className="flex max-w-3xl flex-col gap-5">
+        <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
+          <h2 className="font-display text-lg font-bold">Order fulfillment</h2>
+          <p className="mb-4 mt-1 text-sm text-cocoa/70">Choose how customers can receive new regular orders.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ToggleSwitch label="Pickup" checked={values.checkoutPickupEnabled} onChange={(next) => setValue('checkoutPickupEnabled', next)} />
+            <ToggleSwitch label="Customer-arranged rider" checked={values.checkoutCustomerRiderEnabled} onChange={(next) => setValue('checkoutCustomerRiderEnabled', next)} />
+            <ToggleSwitch label="Sour Lemon delivery" checked={values.checkoutDeliveryEnabled} onChange={(next) => setValue('checkoutDeliveryEnabled', next)} />
+          </div>
+        </section>
+        <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
+          <h2 className="font-display text-lg font-bold">Accepted payments</h2>
+          <p className="mb-4 mt-1 text-sm text-cocoa/70">These switches apply to new regular orders. Custom cake payment links keep using Mobile Money.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ToggleSwitch label="Mobile Money transfer" checked={values.checkoutMomoEnabled} onChange={(next) => setValue('checkoutMomoEnabled', next)} />
+            <ToggleSwitch label="Cash on pickup" checked={values.checkoutCashEnabled} onChange={(next) => setValue('checkoutCashEnabled', next)} />
+          </div>
+          <p className="mt-4 text-xs text-cocoa/60">Cash requires pickup. Rider and delivery orders require configured Mobile Money details. At least one usable combination must remain available.</p>
+        </section>
         <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
           <h2 className="font-display text-lg font-bold">Mobile Money payment</h2>
           <p className="mb-3 mt-1 text-sm text-cocoa/70">Customers copy these details and pay outside the site. Verify the payment in your account before confirming an order.</p>
@@ -231,37 +266,6 @@ export function SettingsPage() {
           />
           {validation.error('pickupLocation') ? <p id="settings-pickupLocation-error" className="mt-2 text-sm text-flame">{validation.error('pickupLocation')}</p> : null}
         </section>
-
-        <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
-          <h2 className="font-display text-lg font-bold">Legacy Paystack review</h2>
-          <p className="mb-3 mt-1 text-sm text-cocoa/70">Controls the second check for existing Paystack payments. Mobile Money transfers always require owner verification.</p>
-          <ToggleSwitch
-            label={values.manualPaymentReview ? 'Second check required' : 'No second check'}
-            checked={values.manualPaymentReview}
-            onChange={(next) => setValue('manualPaymentReview', next)}
-          />
-        </section>
-
-        <fieldset className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
-          <legend className="px-1 font-display text-lg font-bold">Delivery fee</legend>
-          <p className="mb-3 text-sm text-cocoa/70">Choose whether delivery cost is included in checkout or handled with the rider.</p>
-          <div className="grid gap-3 text-sm font-semibold sm:grid-cols-2">
-            {([
-              ['included', 'Included in order price'],
-              ['rider', 'Handled separately with rider'],
-            ] as const).map(([mode, label]) => (
-              <label key={mode} className="flex cursor-pointer items-center gap-3 rounded-lg border border-cocoa/10 p-3">
-                <input
-                  type="radio"
-                  name="delivery-fee-mode"
-                  checked={values.deliveryFeeMode === mode}
-                  onChange={() => setValue('deliveryFeeMode', mode)}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
 
         <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
           <h2 className="font-display text-lg font-bold">Menu scheduling</h2>

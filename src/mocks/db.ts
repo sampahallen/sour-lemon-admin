@@ -1,4 +1,3 @@
-import type { DeliveryArea } from '@/api/deliveryAreas'
 import type { OrderDetail } from '@/api/orders'
 import type { AppSetting } from '@/api/appSettings'
 
@@ -6,7 +5,7 @@ const now = () => new Date().toISOString()
 const id = () => crypto.randomUUID()
 
 // ---- Delivery areas ----
-export const deliveryAreas: DeliveryArea[] = [
+export const deliveryAreas = [
   { id: id(), name: 'Osu', slug: 'osu', deliveryFee: '25.00', isActive: true, sortOrder: 0, createdAt: now(), updatedAt: now() },
   { id: id(), name: 'East Legon', slug: 'east-legon', deliveryFee: '30.00', isActive: true, sortOrder: 10, createdAt: now(), updatedAt: now() },
   { id: id(), name: 'Dansoman', slug: 'dansoman', deliveryFee: '20.00', isActive: true, sortOrder: 20, createdAt: now(), updatedAt: now() },
@@ -171,12 +170,50 @@ export const orders: OrderDetail[] = [
   },
 ]
 
+orders.push({
+  ...orders[0],
+  id: id(),
+  orderNumber: 'A10004',
+  paymentStatus: 'pending',
+  paymentDisplayStatus: 'waiting_for_payment',
+  paymentGroup: 'pending',
+  deliveryAreaId: null,
+  deliveryAreaName: 'Madina',
+  total: '445.00',
+  deliveryFee: '0.00',
+  deliveryAddress: {
+    ...orders[0].deliveryAddress!,
+    area: 'Madina',
+    digitalAddress: 'GA-123-4567',
+    riderFeeSeparate: true,
+    deliveryAreaName: undefined,
+  },
+  payment: {
+    ...orders[0].payment!,
+    id: id(),
+    provider: 'manual_momo',
+    status: 'pending',
+    amount: '445.00',
+    displayStatus: 'waiting_for_payment',
+    paidAt: null,
+  },
+  availableActions: ['cancel'],
+  allowedTransitions: ['cancelled'],
+  statusHistory: [{ toStatus: 'received', fromStatus: null, note: null, createdAt: now() }],
+})
+
 
 // ---- App settings (real keys + defaults from the backend seeder) ----
 export const appSettings: AppSetting[] = [
   { key: 'business_whatsapp_number', value: null, description: 'WhatsApp number used for customer handoffs', updatedAt: now() },
   { key: 'pickup_location', value: null, description: 'Private collection location for ready-order messages', updatedAt: now() },
-  { key: 'manual_payment_review', value: true, description: 'Require owner review after verified payment', updatedAt: now() },
-  { key: 'delivery_fee_mode', value: 'rider', description: 'Whether delivery fees come from areas or riders', updatedAt: now() },
   { key: 'menu_scheduling_enabled', value: false, description: 'Allow scheduled catalog availability', updatedAt: now() },
+  { key: 'momo_payment_number', value: '+233201234567', description: 'Mobile Money number shown to customers', updatedAt: now() },
+  { key: 'momo_recipient_name', value: 'Sour Lemon', description: 'Mobile Money recipient name', updatedAt: now() },
+  { key: 'momo_network', value: 'MTN', description: 'Mobile Money network', updatedAt: now() },
+  { key: 'checkout_pickup_enabled', value: true, description: 'Accept pickup orders', updatedAt: now() },
+  { key: 'checkout_customer_rider_enabled', value: true, description: 'Accept customer-arranged rider orders', updatedAt: now() },
+  { key: 'checkout_delivery_enabled', value: true, description: 'Accept Sour Lemon delivery orders', updatedAt: now() },
+  { key: 'checkout_momo_enabled', value: true, description: 'Accept manual Mobile Money for regular orders', updatedAt: now() },
+  { key: 'checkout_cash_enabled', value: true, description: 'Accept cash on pickup for regular orders', updatedAt: now() },
 ]

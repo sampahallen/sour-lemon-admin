@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw'
-import { appSettings, orders, deliveryAreas } from '../db'
+import { appSettings, orders } from '../db'
 import type { OrderStatus } from '@/api/types'
 import type { OrderAction, OrderDetail, OrderGroup, OrderWorkspace, PaymentDisplayStatus, PaymentGroup } from '@/api/orders'
 import type { WhatsAppOptions, WhatsAppTemplate } from '@/api/whatsapp'
@@ -128,12 +128,17 @@ export const orderHandlers = [
     const status = url.searchParams.get('status') as OrderStatus | null
     const filtered = status ? orders.filter((order) => order.status === status) : orders
 
-    const groups: OrderGroup[] = deliveryAreas.map((area) => ({
-      deliveryArea: { id: area.id, name: area.name },
-      orders: filtered.filter((order) => order.deliveryAreaId === area.id),
-    }))
-    const unassigned = filtered.filter((order) => !order.deliveryAreaId)
-    if (unassigned.length) groups.push({ deliveryArea: null, orders: unassigned })
+    const groups: OrderGroup[] = []
+    for (const order of filtered) {
+      const name = order.deliveryAreaName?.trim()
+      const key = name?.replace(/\s+/g, ' ').toLocaleLowerCase()
+      let group = groups.find((item) => item.deliveryArea?.name.toLocaleLowerCase() === key || (!key && !item.deliveryArea))
+      if (!group) {
+        group = { deliveryArea: name ? { id: order.deliveryAreaId ?? key!, name } : null, orders: [] }
+        groups.push(group)
+      }
+      group.orders.push(order)
+    }
 
     return HttpResponse.json({ groups })
   }),

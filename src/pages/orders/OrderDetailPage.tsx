@@ -236,8 +236,8 @@ export function OrderDetailPage() {
 
             <div className="mt-5 flex flex-wrap justify-end gap-x-5 gap-y-1 border-t border-cocoa/10 pt-4 text-sm text-cocoa/55">
               <span>Subtotal {formatMoney(order.subtotal, order.currency)}</span>
-              <span>Delivery {formatMoney(order.deliveryFee, order.currency)}</span>
-              <strong className="text-cocoa">Total {formatMoney(order.total, order.currency)}</strong>
+              <span>Delivery {order.deliveryAddress?.riderFeeSeparate ? 'Paid separately to rider' : formatMoney(order.deliveryFee, order.currency)}</span>
+              <strong className="text-cocoa">{order.deliveryAddress?.riderFeeSeparate ? 'Goods total' : 'Total'} {formatMoney(order.total, order.currency)}</strong>
             </div>
           </section>
 
@@ -251,8 +251,11 @@ export function OrderDetailPage() {
             </div>
             {order.deliveryAddress ? (
               <div className="mt-3 text-sm leading-relaxed text-cocoa/65">
+                {order.deliveryAddress.area ?? order.deliveryAddress.deliveryAreaName ?? order.deliveryAreaName ? <p className="font-semibold text-cocoa">{order.deliveryAddress.area ?? order.deliveryAddress.deliveryAreaName ?? order.deliveryAreaName}</p> : null}
                 <p>{order.deliveryAddress.addressLine1}{order.deliveryAddress.addressLine2 ? `, ${order.deliveryAddress.addressLine2}` : ''}</p>
                 <p>{order.deliveryAddress.city}{order.deliveryAddress.landmark ? ` · Near ${order.deliveryAddress.landmark}` : ''}</p>
+                {order.deliveryAddress.digitalAddress ? <p>GhanaPostGPS: {order.deliveryAddress.digitalAddress}</p> : null}
+                {order.deliveryAddress.riderFeeSeparate ? <p className="mt-2 font-semibold">Rider fee is arranged separately.</p> : null}
               </div>
             ) : (
               <p className="mt-3 text-sm text-cocoa/55">The customer or their rider will collect this order.</p>

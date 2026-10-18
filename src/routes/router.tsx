@@ -10,7 +10,6 @@ import { CustomCakeRequestsPage } from '@/pages/custom-cakes/CustomCakeRequestsP
 import { CustomCakeRequestDetailPage } from '@/pages/custom-cakes/CustomCakeRequestDetailPage'
 import { MenuPage } from '@/pages/menu/MenuPage'
 import { SiteSectionsPage } from '@/pages/sections/SiteSectionsPage'
-import { DeliveryAreasPage } from '@/pages/delivery-areas/DeliveryAreasPage'
 import { JournalPage } from '@/pages/journal/JournalPage'
 import { JournalPostEditorPage } from '@/pages/journal/JournalPostEditorPage'
 import { SettingsPage } from '@/pages/settings/SettingsPage'
@@ -35,7 +34,6 @@ export const router = createBrowserRouter([
           { path: 'sections', element: <SiteSectionsPage /> },
           { path: 'journal', element: <JournalPage /> },
           { path: 'journal/:postId', element: <JournalPostEditorPage /> },
-          { path: 'delivery-areas', element: <DeliveryAreasPage /> },
           { path: 'settings', element: <SettingsPage /> },
           { path: '*', element: <NotFound /> },
         ],
