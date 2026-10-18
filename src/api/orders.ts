@@ -80,7 +80,18 @@ export interface OrderPaymentSummary {
   paidAt: string | null
 }
 
+export interface PaymentProofSummary {
+  id: string
+  reference: string | null
+  hasImage: boolean
+  status: 'submitted' | 'rejected' | 'confirmed'
+  rejectionReason: string | null
+  reviewedAt: string | null
+  createdAt: string
+}
+
 export interface OrderDetail extends OrderSummary {
+  paymentProofs: PaymentProofSummary[]
   deliveryAddress: DeliveryAddressSnapshot | null
   subtotal: string
   deliveryFee: string

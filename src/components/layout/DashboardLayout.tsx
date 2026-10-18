@@ -8,8 +8,8 @@ const NAV_GROUPS = [
     label: 'Operations',
     items: [
       { to: '/orders', label: 'Orders' },
+      { to: '/payment-proofs', label: 'Payment proofs' },
       { to: '/custom-cakes', label: 'Custom Cakes' },
-      { to: '/delivery-areas', label: 'Delivery Areas' },
     ],
   },
   {
@@ -49,14 +49,14 @@ export function DashboardLayout() {
       {isSidebarOpen ? (
         <button
           aria-label="Close menu"
-          className="fixed inset-0 z-30 bg-cocoa/40 md:hidden"
+          className="fixed inset-0 z-30 bg-cocoa/40 xl:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       ) : null}
 
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-y-auto border-r border-cocoa/10 bg-[#fffefa] p-4 transition-transform md:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col overflow-y-auto border-r border-cocoa/10 bg-[#fffefa] p-4 transition-transform xl:translate-x-0',
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -102,16 +102,16 @@ export function DashboardLayout() {
         </button>
       </aside>
 
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col md:pl-64">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col xl:pl-64">
         <header className="sticky top-0 z-20 flex min-h-16 items-center justify-between border-b border-cocoa/10 bg-white/95 px-4 py-3 backdrop-blur md:px-8">
           <button
             aria-label="Open menu"
-            className="rounded-lg p-2 hover:bg-cocoa/5 md:hidden"
+            className="rounded-lg p-2 hover:bg-cocoa/5 xl:hidden"
             onClick={() => setIsSidebarOpen(true)}
           >
             ☰
           </button>
-          <div className="hidden truncate text-xs font-semibold uppercase tracking-[0.12em] text-cocoa/45 md:block">
+          <div className="hidden truncate text-xs font-semibold uppercase tracking-[0.12em] text-cocoa/45 xl:block">
             {location.pathname.split('/')[1]?.replace(/-/g, ' ') || 'Orders'}
           </div>
           <div className="flex items-center gap-3 text-sm text-cocoa/70">

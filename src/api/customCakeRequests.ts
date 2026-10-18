@@ -1,5 +1,6 @@
 import { apiRequest } from './client'
 import type { CustomCakeStatus, Pagination } from './types'
+import type { PaymentProofSummary } from './orders'
 
 export interface CustomCakeImage {
   id: string
@@ -24,9 +25,18 @@ export interface CustomCakeRequestSummary {
 }
 
 export interface CustomCakeRequestDetail extends CustomCakeRequestSummary {
+  paymentProofs: PaymentProofSummary[]
   notes: string | null
   images: CustomCakeImage[]
   orderId: string | null
+}
+
+export function getCakePaymentLink(token: string, id: string) {
+  return apiRequest<{ url: string }>(`/api/custom-cake-requests/${id}/payment-link`, token)
+}
+
+export function rotateCakePaymentLink(token: string, id: string) {
+  return apiRequest<{ url: string }>(`/api/custom-cake-requests/${id}/payment-link/rotate`, token, { method: 'POST' })
 }
 
 export function listCustomCakeRequests(

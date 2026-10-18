@@ -17,6 +17,7 @@ import { useOrderUpdates } from '@/hooks/useOrderUpdates'
 import { getOrderWhatsAppOptions } from '@/api/whatsapp'
 import { WhatsAppComposer } from '@/components/whatsapp/WhatsAppComposer'
 import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
+import { PaymentProofReview } from '@/components/PaymentProofReview'
 import {
   orderStatusLabel,
   orderStatusTone,
@@ -194,6 +195,7 @@ export function OrderDetailPage() {
 
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-5">
+          {order.payment?.provider === 'manual_momo' ? <PaymentProofReview proofs={order.paymentProofs} onReviewed={() => load(true)} /> : null}
           <section className="rounded-2xl border border-cocoa/10 bg-white p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -234,8 +236,8 @@ export function OrderDetailPage() {
 
             <div className="mt-5 flex flex-wrap justify-end gap-x-5 gap-y-1 border-t border-cocoa/10 pt-4 text-sm text-cocoa/55">
               <span>Subtotal {formatMoney(order.subtotal, order.currency)}</span>
-              <span>Delivery {formatMoney(order.deliveryFee, order.currency)}</span>
-              <strong className="text-cocoa">Total {formatMoney(order.total, order.currency)}</strong>
+              <span>Delivery {order.deliveryAddress?.riderFeeSeparate ? 'Paid separately to rider' : formatMoney(order.deliveryFee, order.currency)}</span>
+              <strong className="text-cocoa">{order.deliveryAddress?.riderFeeSeparate ? 'Goods total' : 'Total'} {formatMoney(order.total, order.currency)}</strong>
             </div>
           </section>
 
@@ -249,8 +251,11 @@ export function OrderDetailPage() {
             </div>
             {order.deliveryAddress ? (
               <div className="mt-3 text-sm leading-relaxed text-cocoa/65">
+                {order.deliveryAddress.area ?? order.deliveryAddress.deliveryAreaName ?? order.deliveryAreaName ? <p className="font-semibold text-cocoa">{order.deliveryAddress.area ?? order.deliveryAddress.deliveryAreaName ?? order.deliveryAreaName}</p> : null}
                 <p>{order.deliveryAddress.addressLine1}{order.deliveryAddress.addressLine2 ? `, ${order.deliveryAddress.addressLine2}` : ''}</p>
                 <p>{order.deliveryAddress.city}{order.deliveryAddress.landmark ? ` · Near ${order.deliveryAddress.landmark}` : ''}</p>
+                {order.deliveryAddress.digitalAddress ? <p>GhanaPostGPS: {order.deliveryAddress.digitalAddress}</p> : null}
+                {order.deliveryAddress.riderFeeSeparate ? <p className="mt-2 font-semibold">Rider fee is arranged separately.</p> : null}
               </div>
             ) : (
               <p className="mt-3 text-sm text-cocoa/55">The customer or their rider will collect this order.</p>
@@ -351,7 +356,7 @@ export function OrderDetailPage() {
                 <p className="mt-0.5 font-display text-base font-bold text-cocoa">{order.payment.paymentName}</p>
               </div>
             ) : null}
-            {order.paymentDisplayStatus === 'needs_review' ? <p className="mt-1 text-xs font-semibold text-violet-700">Paystack verified this payment. It needs your confirmation.</p> : null}
+            {order.paymentDisplayStatus === 'needs_review' ? <p className="mt-1 text-xs font-semibold text-violet-700">Payment needs your confirmation.</p> : null}
             {order.paymentDisplayStatus === 'cash_due' ? <p className="mt-1 text-xs font-semibold text-amber-700">Record the cash when the customer collects.</p> : null}
             {order.paymentDisplayStatus === 'failed' ? <p className="mt-1 text-xs font-semibold text-flame">The online payment failed.</p> : null}
           </div>

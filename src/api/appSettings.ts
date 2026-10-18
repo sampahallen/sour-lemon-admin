@@ -1,13 +1,18 @@
 import { apiRequest } from './client'
-import type { DeliveryFeeMode } from './types'
 
 // Real keys seeded in sour-lemon-backend/src/database/seeders/20260825000100-seed-site-configuration.cjs
 export const APP_SETTING_KEYS = {
   businessWhatsappNumber: 'business_whatsapp_number',
   pickupLocation: 'pickup_location',
-  manualPaymentReview: 'manual_payment_review',
-  deliveryFeeMode: 'delivery_fee_mode',
   menuSchedulingEnabled: 'menu_scheduling_enabled',
+  momoPaymentNumber: 'momo_payment_number',
+  momoRecipientName: 'momo_recipient_name',
+  momoNetwork: 'momo_network',
+  checkoutPickupEnabled: 'checkout_pickup_enabled',
+  checkoutCustomerRiderEnabled: 'checkout_customer_rider_enabled',
+  checkoutDeliveryEnabled: 'checkout_delivery_enabled',
+  checkoutMomoEnabled: 'checkout_momo_enabled',
+  checkoutCashEnabled: 'checkout_cash_enabled',
 } as const
 
 export type AppSettingKey = (typeof APP_SETTING_KEYS)[keyof typeof APP_SETTING_KEYS]
@@ -15,9 +20,15 @@ export type AppSettingKey = (typeof APP_SETTING_KEYS)[keyof typeof APP_SETTING_K
 export interface AppSettingValueMap {
   business_whatsapp_number: string | null
   pickup_location: string | null
-  manual_payment_review: boolean
-  delivery_fee_mode: DeliveryFeeMode
   menu_scheduling_enabled: boolean
+  momo_payment_number: string | null
+  momo_recipient_name: string | null
+  momo_network: string | null
+  checkout_pickup_enabled: boolean
+  checkout_customer_rider_enabled: boolean
+  checkout_delivery_enabled: boolean
+  checkout_momo_enabled: boolean
+  checkout_cash_enabled: boolean
 }
 
 export type AppSettingUpdate = {
