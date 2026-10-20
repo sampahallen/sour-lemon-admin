@@ -6,35 +6,51 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { cn } from '@/utils/cn'
 import { useAuth } from '@/auth/authContext'
 import { listCustomCakeRequests, type CustomCakeRequestSummary } from '@/api/customCakeRequests'
-import { CUSTOM_CAKE_STATUSES, type CustomCakeStatus } from '@/api/types'
+import { CUSTOM_CAKE_STATUSES, type CustomCakeStatus, type Pagination } from '@/api/types'
 import { customCakeStatusTone } from './customCakeStatus'
+import { useOperationsLive } from '@/components/layout/operationsLiveContext'
 
 export function CustomCakeRequestsPage() {
   const { session } = useAuth()
   const token = session!.token
+  const { revisions, status } = useOperationsLive()
   const navigate = useNavigate()
 
-  const [statusFilter, setStatusFilter] = useState<CustomCakeStatus | null>(null)
+  const [statusFilter, setStatusFilter] = useState<CustomCakeStatus | null>('submitted')
   const [requests, setRequests] = useState<CustomCakeRequestSummary[]>([])
+  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState<Pagination | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const changeStatusFilter = (next: CustomCakeStatus | null) => {
     setIsLoading(true)
     setStatusFilter(next)
+    setPage(1)
   }
 
   useEffect(() => {
-    listCustomCakeRequests(token, { status: statusFilter ?? undefined })
-      .then(({ requests }) => setRequests(requests))
-      .finally(() => setIsLoading(false))
-  }, [statusFilter, token])
+    let active = true
+    void listCustomCakeRequests(token, { status: statusFilter ?? undefined, page })
+      .then((result) => {
+        if (!active) return
+        setRequests(result.requests)
+        setPagination(result.pagination)
+        setError(null)
+        if (page > 1 && page > result.pagination.totalPages) setPage(Math.max(1, result.pagination.totalPages))
+      })
+      .catch((caught: unknown) => { if (active) setError(caught instanceof Error ? caught.message : 'Could not refresh cake requests.') })
+      .finally(() => { if (active) setIsLoading(false) })
+    return () => { active = false }
+  }, [statusFilter, page, token, revisions.cakes])
 
   return (
     <div>
-      <PageHeader title="Custom Cake Requests" />
+      <PageHeader title="Custom Cake Requests" action={<span className={`text-xs font-semibold ${status === 'connected' ? 'text-olive' : 'text-flame'}`}>{status === 'connected' ? '● Live' : '● Reconnecting'}</span>} />
+      {error ? <p role="alert" className="mb-4 text-sm font-semibold text-flame">{error}</p> : null}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-cocoa/10 bg-white p-5 shadow-sm">
         <div><h2 className="font-display text-lg font-bold">Your quote queue</h2><p className="mt-1 text-sm text-cocoa/60">Review the brief and reference photos, then prepare a quote.</p></div>
-        {!isLoading ? <span className="rounded-xl bg-butter/35 px-3 py-2 text-xs font-bold text-cocoa">{requests.length} {statusFilter ? statusFilter.replace(/_/g, ' ') : 'requests'}</span> : null}
+        {!isLoading && pagination ? <span className="rounded-xl bg-butter/35 px-3 py-2 text-xs font-bold text-cocoa">{pagination.total} {statusFilter ? statusFilter.replace(/_/g, ' ') : 'requests'}</span> : null}
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2 text-sm" aria-label="Filter cake requests by status">
@@ -87,6 +103,11 @@ export function CustomCakeRequestsPage() {
           emptyState="No custom cake requests match this filter."
         />
       )}
+      {pagination && pagination.totalPages > 1 ? <div className="mt-5 flex items-center justify-between gap-3 text-sm font-semibold text-cocoa/70">
+        <button type="button" disabled={page <= 1} onClick={() => { setIsLoading(true); setPage(page - 1) }} className="rounded-lg border border-cocoa/20 px-3 py-2 disabled:opacity-40">Previous</button>
+        <span>Page {page} of {pagination.totalPages}</span>
+        <button type="button" disabled={page >= pagination.totalPages} onClick={() => { setIsLoading(true); setPage(page + 1) }} className="rounded-lg border border-cocoa/20 px-3 py-2 disabled:opacity-40">Next</button>
+      </div> : null}
     </div>
   )
 }

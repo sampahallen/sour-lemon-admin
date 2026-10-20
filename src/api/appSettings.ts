@@ -13,6 +13,7 @@ export const APP_SETTING_KEYS = {
   checkoutDeliveryEnabled: 'checkout_delivery_enabled',
   checkoutMomoEnabled: 'checkout_momo_enabled',
   checkoutCashEnabled: 'checkout_cash_enabled',
+  dropNotificationsEnabled: 'drop_notifications_enabled',
 } as const
 
 export type AppSettingKey = (typeof APP_SETTING_KEYS)[keyof typeof APP_SETTING_KEYS]
@@ -29,6 +30,7 @@ export interface AppSettingValueMap {
   checkout_delivery_enabled: boolean
   checkout_momo_enabled: boolean
   checkout_cash_enabled: boolean
+  drop_notifications_enabled: boolean
 }
 
 export type AppSettingUpdate = {

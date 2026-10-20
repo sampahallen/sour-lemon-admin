@@ -81,6 +81,8 @@ export interface JournalImageBlock {
   type: 'image'
   imageId: string
   caption?: string
+  widthPercent?: number
+  alignment?: 'left' | 'center' | 'right'
 }
 
 export type JournalBlock =

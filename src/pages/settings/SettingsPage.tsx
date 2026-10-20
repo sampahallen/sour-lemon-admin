@@ -21,6 +21,7 @@ interface SettingsValues {
   whatsappNumber: string
   pickupLocation: string
   menuSchedulingEnabled: boolean
+  dropNotificationsEnabled: boolean
   checkoutPickupEnabled: boolean
   checkoutCustomerRiderEnabled: boolean
   checkoutDeliveryEnabled: boolean
@@ -35,6 +36,7 @@ const defaults: SettingsValues = {
   whatsappNumber: '',
   pickupLocation: '',
   menuSchedulingEnabled: false,
+  dropNotificationsEnabled: false,
   checkoutPickupEnabled: true,
   checkoutCustomerRiderEnabled: true,
   checkoutDeliveryEnabled: true,
@@ -51,6 +53,7 @@ const toValues = (settings: AppSetting[]): SettingsValues => {
     if (setting.key === APP_SETTING_KEYS.businessWhatsappNumber) values.whatsappNumber = (setting.value as string | null) ?? ''
     if (setting.key === APP_SETTING_KEYS.pickupLocation) values.pickupLocation = (setting.value as string | null) ?? ''
     if (setting.key === APP_SETTING_KEYS.menuSchedulingEnabled) values.menuSchedulingEnabled = setting.value as boolean
+    if (setting.key === APP_SETTING_KEYS.dropNotificationsEnabled) values.dropNotificationsEnabled = setting.value as boolean
     if (setting.key === APP_SETTING_KEYS.checkoutPickupEnabled) values.checkoutPickupEnabled = setting.value as boolean
     if (setting.key === APP_SETTING_KEYS.checkoutCustomerRiderEnabled) values.checkoutCustomerRiderEnabled = setting.value as boolean
     if (setting.key === APP_SETTING_KEYS.checkoutDeliveryEnabled) values.checkoutDeliveryEnabled = setting.value as boolean
@@ -153,6 +156,9 @@ export function SettingsPage() {
     if (values.menuSchedulingEnabled !== savedValues.menuSchedulingEnabled) {
       updates.push({ key: APP_SETTING_KEYS.menuSchedulingEnabled, value: values.menuSchedulingEnabled })
     }
+    if (values.dropNotificationsEnabled !== savedValues.dropNotificationsEnabled) {
+      updates.push({ key: APP_SETTING_KEYS.dropNotificationsEnabled, value: values.dropNotificationsEnabled })
+    }
     if (values.checkoutPickupEnabled !== savedValues.checkoutPickupEnabled) {
       updates.push({ key: APP_SETTING_KEYS.checkoutPickupEnabled, value: values.checkoutPickupEnabled })
     }
@@ -178,7 +184,7 @@ export function SettingsPage() {
       setValues(nextValues)
       setSavedValues(nextValues)
       validation.reset()
-      setSuccessMessage('Settings saved. New orders and customer handoffs will use these values.')
+      setSuccessMessage('Settings saved. New orders, customer handoffs, and drop alerts will use these values.')
     } catch (error) {
       if (!validation.server(error, (path) => {
         const index = Number(/^updates\.(\d+)\.value$/.exec(path)?.[1])
@@ -274,6 +280,16 @@ export function SettingsPage() {
             label={values.menuSchedulingEnabled ? 'Scheduling enabled' : 'Manual updates only'}
             checked={values.menuSchedulingEnabled}
             onChange={(next) => setValue('menuSchedulingEnabled', next)}
+          />
+        </section>
+
+        <section className="rounded-2xl border border-cocoa/10 bg-white p-6 shadow-sm">
+          <h2 className="font-display text-lg font-bold">Subscriber notifications</h2>
+          <p className="mb-3 mt-1 text-sm text-cocoa/70">Email confirmed subscribers automatically when bakery treats or Journal stories first go live. Turning this off skips unsent and missed drops.</p>
+          <ToggleSwitch
+            label="Notify subscribers about new drops"
+            checked={values.dropNotificationsEnabled}
+            onChange={(next) => setValue('dropNotificationsEnabled', next)}
           />
         </section>
 

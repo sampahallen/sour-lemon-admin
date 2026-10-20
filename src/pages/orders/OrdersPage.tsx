@@ -20,7 +20,7 @@ import {
   type OrderStatus,
   type Pagination,
 } from '@/api/types'
-import { useOrderUpdates } from '@/hooks/useOrderUpdates'
+import { useOperationsLive } from '@/components/layout/operationsLiveContext'
 import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 import {
   orderStatusLabel,
@@ -172,6 +172,7 @@ const historyColumns = [
 export function OrdersPage() {
   const { session } = useAuth()
   const token = session!.token
+  const { status: liveStatus, revisions, lastOrderEvent } = useOperationsLive()
   const navigate = useNavigate()
   const [view, setView] = useState<'active' | 'history'>('active')
   const [workspace, setWorkspace] = useState<OrderWorkspace | null>(null)
@@ -196,20 +197,25 @@ export function OrdersPage() {
   const [activeSearch, setActiveSearch] = useState('')
   const [, forceTick] = useState(0)
   const originalTitleRef = useRef(document.title)
+  const seenOrderEventRef = useRef(lastOrderEvent?.sequence ?? 0)
+  const dataRequestRef = useRef(0)
 
   const loadWorkspace = useCallback(async (quiet = false) => {
+    const version = ++dataRequestRef.current
     if (!quiet) setIsLoading(true)
     setError(null)
     try {
-      setWorkspace(await getOrderWorkspace(token))
+      const result = await getOrderWorkspace(token)
+      if (version === dataRequestRef.current) setWorkspace(result)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not load active orders.')
+      if (version === dataRequestRef.current) setError(caught instanceof Error ? caught.message : 'Could not load active orders.')
     } finally {
-      if (!quiet) setIsLoading(false)
+      if (version === dataRequestRef.current) setIsLoading(false)
     }
   }, [token])
 
   const loadHistory = useCallback(async () => {
+    const version = ++dataRequestRef.current
     setIsLoading(true)
     setError(null)
     try {
@@ -224,12 +230,14 @@ export function OrdersPage() {
         page,
         limit: PAGE_SIZE,
       })
-      setHistory(result.orders)
-      setPagination(result.pagination)
+      if (version === dataRequestRef.current) {
+        setHistory(result.orders)
+        setPagination(result.pagination)
+      }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not load order history.')
+      if (version === dataRequestRef.current) setError(caught instanceof Error ? caught.message : 'Could not load order history.')
     } finally {
-      setIsLoading(false)
+      if (version === dataRequestRef.current) setIsLoading(false)
     }
   }, [dateFrom, dateTo, fulfillmentType, page, paymentGroup, search, status, token])
 
@@ -240,21 +248,25 @@ export function OrdersPage() {
     else void loadHistory()
   }, [loadHistory, loadWorkspace, view])
 
-  const liveStatus = useOrderUpdates(token, (event) => {
-    if (event.reason === 'created') {
+  useEffect(() => {
+    if (!lastOrderEvent || lastOrderEvent.sequence <= seenOrderEventRef.current) return
+    seenOrderEventRef.current = lastOrderEvent.sequence
+    if (lastOrderEvent?.reason === 'created') {
+      // A live server event updates the local notification state.
+      // oxlint-disable-next-line react/set-state-in-effect
       setNotice('A new order was received.')
       playNewOrderChime()
       if (document.hidden) document.title = `🔔 New order — ${originalTitleRef.current}`
     }
-    if (view === 'active') void loadWorkspace(true)
-    else void loadHistory()
-  })
+  }, [lastOrderEvent])
 
   useEffect(() => {
-    if (liveStatus !== 'disconnected' || view !== 'active') return
-    const fallback = window.setInterval(() => void loadWorkspace(true), 60_000)
-    return () => window.clearInterval(fallback)
-  }, [liveStatus, loadWorkspace, view])
+    if (!revisions.orders) return
+    // A server revision requires a fresh copy of the active view.
+    // oxlint-disable-next-line react/set-state-in-effect
+    if (view === 'active') void loadWorkspace(true)
+    else void loadHistory()
+  }, [revisions.orders, view, loadWorkspace, loadHistory])
 
   useEffect(() => {
     if (!notice) return

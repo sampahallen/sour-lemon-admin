@@ -11,6 +11,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router/dom'
 import { AuthProvider } from './auth/AuthProvider'
+import { ImagePreviewProvider } from './components/ui/ImagePreviewProvider'
 import { router } from './routes/router'
 
 async function enableMocking() {
@@ -23,7 +24,9 @@ void enableMocking().then(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <AuthProvider>
-        <RouterProvider router={router} />
+        <ImagePreviewProvider>
+          <RouterProvider router={router} />
+        </ImagePreviewProvider>
       </AuthProvider>
     </StrictMode>,
   )

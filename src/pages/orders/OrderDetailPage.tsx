@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -13,7 +13,7 @@ import {
   type OrderDetail,
 } from '@/api/orders'
 import type { OrderStatus } from '@/api/types'
-import { useOrderUpdates } from '@/hooks/useOrderUpdates'
+import { useOperationsLive } from '@/components/layout/operationsLiveContext'
 import { getOrderWhatsAppOptions } from '@/api/whatsapp'
 import { WhatsAppComposer } from '@/components/whatsapp/WhatsAppComposer'
 import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
@@ -48,6 +48,7 @@ export function OrderDetailPage() {
   const { orderId } = useParams()
   const { session } = useAuth()
   const token = session!.token
+  const { status: liveStatus, revisions } = useOperationsLive()
   const navigate = useNavigate()
   const [order, setOrder] = useState<OrderDetail | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -57,21 +58,23 @@ export function OrderDetailPage() {
   const [cancelReason, setCancelReason] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const requestVersion = useRef(0)
   const validation = useFormValidation<'reason'>('order-detail-cancel', (): FieldErrors<'reason'> => (
     !cancelReason.trim() ? { reason: 'Enter a cancellation reason.' } : {}
   ))
 
   const load = useCallback(async (quiet = false) => {
     if (!orderId) return
+    const version = ++requestVersion.current
     if (!quiet) setIsLoading(true)
     setError(null)
     try {
       const result = await getOrder(token, orderId)
-      setOrder(result.order)
+      if (version === requestVersion.current) setOrder(result.order)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not load this order.')
+      if (version === requestVersion.current) setError(caught instanceof Error ? caught.message : 'Could not load this order.')
     } finally {
-      if (!quiet) setIsLoading(false)
+      if (version === requestVersion.current) setIsLoading(false)
     }
   }, [orderId, token])
 
@@ -81,9 +84,11 @@ export function OrderDetailPage() {
     void load()
   }, [load])
 
-  const liveStatus = useOrderUpdates(token, (event) => {
-    if (event.orderId === orderId) void load(true)
-  })
+  useEffect(() => {
+    // The live server revision invalidates this order's fetched detail.
+    // oxlint-disable-next-line react/set-state-in-effect
+    if (revisions.orders) void load(true)
+  }, [revisions.orders, load])
 
   const loadWhatsAppOptions = useCallback(() => {
     if (!orderId) return Promise.reject(new Error('Order not found.'))
