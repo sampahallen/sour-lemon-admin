@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { deleteJournalPostImage, uploadJournalPostImage, type JournalPostImage } from '@/api/journal'
 import { Button } from '@/components/ui/Button'
 import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
@@ -24,6 +24,9 @@ export function JournalCoverPhoto({
   const [caption, setCaption] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
   const validation = useFormValidation<'caption'>('journal-cover', (): FieldErrors<'caption'> => (
     caption.trim().length > 2_000 ? { caption: 'Keep the caption under 2,000 characters.' } : {}
   ))
@@ -31,7 +34,6 @@ export function JournalCoverPhoto({
   const pickFile = () => inputRef.current?.click()
 
   const cancelPending = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPendingFile(null)
     setPreviewUrl(null)
     setCaption('')
@@ -100,7 +102,7 @@ export function JournalCoverPhoto({
 
       {pendingFile ? (
         <div className="rounded-2xl border border-cocoa/10 bg-cream/60 p-4">
-          <img src={previewUrl ?? undefined} alt="" className="h-48 w-full rounded-xl object-cover" />
+          {previewUrl ? <img src={previewUrl} alt="" className="h-48 w-full rounded-xl object-cover" /> : null}
           <input
             {...validation.props('caption')}
             aria-label="Cover photo caption"

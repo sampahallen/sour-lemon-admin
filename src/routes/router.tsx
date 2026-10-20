@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
+import { OperationsLiveProvider } from '@/components/layout/OperationsLiveProvider'
 import { RequireAdmin } from '@/auth/RequireAdmin'
 import { SignIn } from '@/pages/SignIn'
 import { NotFound } from '@/pages/NotFound'
@@ -13,6 +14,7 @@ import { SiteSectionsPage } from '@/pages/sections/SiteSectionsPage'
 import { JournalPage } from '@/pages/journal/JournalPage'
 import { JournalPostEditorPage } from '@/pages/journal/JournalPostEditorPage'
 import { SettingsPage } from '@/pages/settings/SettingsPage'
+import { NewsletterPage } from '@/pages/newsletter/NewsletterPage'
 
 export const router = createBrowserRouter([
   { path: '/signin', element: <SignIn /> },
@@ -20,7 +22,7 @@ export const router = createBrowserRouter([
     element: <RequireAdmin />,
     children: [
       {
-        element: <DashboardLayout />,
+        element: <OperationsLiveProvider><DashboardLayout /></OperationsLiveProvider>,
         children: [
           { index: true, element: <Navigate to="/orders" replace /> },
           { path: 'orders', element: <OrdersPage /> },
@@ -34,6 +36,8 @@ export const router = createBrowserRouter([
           { path: 'sections', element: <SiteSectionsPage /> },
           { path: 'journal', element: <JournalPage /> },
           { path: 'journal/:postId', element: <JournalPostEditorPage /> },
+          { path: 'subscribers', element: <NewsletterPage /> },
+          { path: 'newsletter', element: <Navigate to="/subscribers" replace /> },
           { path: 'settings', element: <SettingsPage /> },
           { path: '*', element: <NotFound /> },
         ],

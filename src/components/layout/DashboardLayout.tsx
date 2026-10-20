@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { cn } from '@/utils/cn'
 import { useAuth } from '@/auth/authContext'
+import { useOperationsLive } from './operationsLiveContext'
 
 const NAV_GROUPS = [
   {
@@ -18,6 +19,7 @@ const NAV_GROUPS = [
       { to: '/bakery', label: 'Bakery' },
       { to: '/shop', label: 'Shop' },
       { to: '/journal', label: 'Journal' },
+      { to: '/subscribers', label: 'Subscribers' },
       { to: '/sections', label: 'Sections' },
     ],
   },
@@ -29,6 +31,7 @@ const NAV_GROUPS = [
 
 export function DashboardLayout() {
   const { session, signOut } = useAuth()
+  const { summary, status } = useOperationsLive()
   const navigate = useNavigate()
   const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -72,23 +75,28 @@ export function DashboardLayout() {
                 className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-cocoa/40"
               >
                 {group.label}
+                {group.label === 'Operations' && status !== 'connected' ? <span className="ml-2 normal-case tracking-normal text-flame" title="Live updates are reconnecting">Reconnecting</span> : null}
               </h2>
               <div className="flex flex-col gap-1">
-                {group.items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={() => setIsSidebarOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        'rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors',
-                        isActive ? 'bg-flame/10 text-[#b8441f]' : 'text-cocoa/65 hover:bg-cocoa/5 hover:text-cocoa',
-                      )
-                    }
-                  >
-                    {item.label}
-                  </NavLink>
-                ))}
+                {group.items.map((item) => {
+                  const count = item.to === '/orders' ? summary?.orders : item.to === '/payment-proofs' ? summary?.proofs : item.to === '/custom-cakes' ? summary?.cakes : null
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setIsSidebarOpen(false)}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors',
+                          isActive ? 'bg-flame/10 text-[#b8441f]' : 'text-cocoa/65 hover:bg-cocoa/5 hover:text-cocoa',
+                        )
+                      }
+                    >
+                      <span>{item.label}</span>
+                      {count ? <span aria-label={`${count} ${item.label.toLowerCase()} need attention`} title={`${count} need attention`} className="inline-flex min-w-6 shrink-0 items-center justify-center rounded-full bg-flame px-1.5 py-0.5 text-[11px] font-bold leading-4 text-white">{count > 99 ? '99+' : count}</span> : null}
+                    </NavLink>
+                  )
+                })}
               </div>
             </section>
           ))}

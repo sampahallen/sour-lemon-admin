@@ -9,6 +9,19 @@ import { createImageFigure, createParagraph, readJournalDocument, writeJournalDo
 
 type BlockFormat = 'paragraph' | 'heading-2' | 'heading-3' | 'unordered-list' | 'ordered-list' | 'quote'
 type InlineFormat = 'bold' | 'italic' | 'underline'
+type ImageResizeDrag = {
+  pointerId: number
+  handle: HTMLButtonElement
+  figure: HTMLElement
+  edge: string
+  startX: number
+  startY: number
+  startWidth: number
+  frameWidth: number
+  frameHeight: number
+  containerWidth: number
+  alignment: 'left' | 'center' | 'right'
+}
 
 const blockTools: { label: string; glyph: string; format: BlockFormat }[] = [
   { label: 'Text', glyph: 'Aa', format: 'paragraph' },
@@ -55,6 +68,13 @@ function placeCaret(element: HTMLElement) {
   selection.addRange(range)
 }
 
+function selectImageFigure(root: HTMLElement, selected: HTMLElement | null) {
+  root.querySelectorAll<HTMLElement>('figure[data-image-id][data-selected]').forEach((figure) => {
+    if (figure !== selected) delete figure.dataset.selected
+  })
+  if (selected) selected.dataset.selected = 'true'
+}
+
 export function JournalBodyEditor({
   blocks,
   onChange,
@@ -73,6 +93,7 @@ export function JournalBodyEditor({
   const rootRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const insertionBlockRef = useRef<HTMLElement | null>(null)
+  const resizeDragRef = useRef<ImageResizeDrag | null>(null)
   const rendered = useRef('')
   const [activeBlock, setActiveBlock] = useState<BlockFormat>('paragraph')
   const [activeInline, setActiveInline] = useState<Record<InlineFormat, boolean>>({ bold: false, italic: false, underline: false })
@@ -104,6 +125,15 @@ export function JournalBodyEditor({
     }
     document.addEventListener('selectionchange', update)
     return () => document.removeEventListener('selectionchange', update)
+  }, [])
+
+  useEffect(() => {
+    const deselectOutside = (event: PointerEvent) => {
+      const root = rootRef.current
+      if (root && event.target instanceof Node && !root.contains(event.target)) selectImageFigure(root, null)
+    }
+    document.addEventListener('pointerdown', deselectOutside)
+    return () => document.removeEventListener('pointerdown', deselectOutside)
   }, [])
 
   const sync = () => {
@@ -195,7 +225,71 @@ export function JournalBodyEditor({
   }
 
   const keepSelection = (event: MouseEvent<HTMLButtonElement>) => event.preventDefault()
+  const setImageWidth = (figure: HTMLElement, value: number) => {
+    const width = Math.min(100, Math.max(25, Math.round(value)))
+    figure.dataset.widthPercent = String(width)
+    const frame = figure.querySelector<HTMLElement>('.journal-image-frame')
+    const caption = figure.querySelector<HTMLElement>('figcaption')
+    const input = figure.querySelector<HTMLInputElement>('input[data-image-width]')
+    if (frame) frame.style.width = `${width}%`
+    if (caption) caption.style.width = `${width}%`
+    if (input) input.value = String(width)
+  }
+  const setImageAlignment = (figure: HTMLElement, alignment: 'left' | 'center' | 'right') => {
+    figure.dataset.align = alignment
+    figure.querySelectorAll<HTMLButtonElement>('button[data-image-align]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.imageAlign === alignment))
+    })
+    sync()
+  }
+  const commitWidthInput = (input: HTMLInputElement) => {
+    const figure = input.closest<HTMLElement>('figure[data-image-id]')
+    if (!figure) return
+    setImageWidth(figure, Number.isFinite(input.valueAsNumber) ? input.valueAsNumber : Number(figure.dataset.widthPercent))
+    sync()
+  }
+  const finishResize = (pointerId: number) => {
+    const drag = resizeDragRef.current
+    if (!drag || drag.pointerId !== pointerId) return
+    if (drag.handle.hasPointerCapture(pointerId)) drag.handle.releasePointerCapture(pointerId)
+    resizeDragRef.current = null
+    sync()
+  }
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target instanceof HTMLInputElement && event.target.dataset.imageWidth) {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        commitWidthInput(event.target)
+      }
+      return
+    }
+    if (event.target instanceof HTMLButtonElement && event.target.dataset.resizeImage) {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+        event.preventDefault()
+        const figure = event.target.closest<HTMLElement>('figure[data-image-id]')
+        if (figure) {
+          const direction = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1
+          const edge = event.target.dataset.resizeImage
+          const axis = event.key === 'ArrowLeft' || event.key === 'ArrowRight' ? 'horizontal' : 'vertical'
+          if (axis === 'horizontal' && !edge?.includes('left') && !edge?.includes('right')) return
+          if (axis === 'vertical' && !edge?.includes('top') && !edge?.includes('bottom')) return
+          const sign = axis === 'horizontal' ? edge?.includes('left') ? -1 : 1 : edge?.includes('top') ? -1 : 1
+          setImageWidth(figure, Number(figure.dataset.widthPercent) + direction * sign * 5)
+          sync()
+        }
+      }
+      return
+    }
+    if (event.target instanceof HTMLElement && event.target.classList.contains('journal-image-frame')) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        const root = rootRef.current
+        const figure = event.target.closest<HTMLElement>('figure[data-image-id]')
+        if (root && figure) selectImageFigure(root, figure)
+      }
+      return
+    }
+    if (event.target instanceof HTMLButtonElement || event.target instanceof HTMLInputElement) return
     if (event.key === 'Enter' && !event.shiftKey) {
       const root = rootRef.current
       if (!root) return
@@ -254,7 +348,66 @@ export function JournalBodyEditor({
           document.execCommand('defaultParagraphSeparator', false, 'p')
           ensureParagraph()
         }}
-        onInput={sync}
+        onInput={(event) => {
+          if (event.target instanceof HTMLInputElement && event.target.dataset.imageWidth) return
+          sync()
+        }}
+        onPointerDown={(event) => {
+          if (!(event.target instanceof HTMLElement)) return
+          const handle = event.target.closest<HTMLButtonElement>('button[data-resize-image]')
+          const figure = handle?.closest<HTMLElement>('figure[data-image-id]')
+          const root = rootRef.current
+          if (!handle || !figure || !root || (event.pointerType === 'mouse' && event.button !== 0)) return
+          event.preventDefault()
+          selectImageFigure(root, figure)
+          handle.setPointerCapture(event.pointerId)
+          resizeDragRef.current = {
+            pointerId: event.pointerId,
+            handle,
+            figure,
+            edge: handle.dataset.resizeImage ?? 'right',
+            startX: event.clientX,
+            startY: event.clientY,
+            startWidth: Number(figure.dataset.widthPercent) || 100,
+            frameWidth: Math.max(1, handle.parentElement?.getBoundingClientRect().width ?? 1),
+            frameHeight: Math.max(1, handle.parentElement?.getBoundingClientRect().height ?? 1),
+            containerWidth: Math.max(1, figure.getBoundingClientRect().width),
+            alignment: figure.dataset.align === 'left' || figure.dataset.align === 'right' ? figure.dataset.align : 'center',
+          }
+        }}
+        onPointerMove={(event) => {
+          const drag = resizeDragRef.current
+          if (!drag || drag.pointerId !== event.pointerId) return
+          const horizontal = drag.edge.includes('left') || drag.edge.includes('right')
+          const vertical = drag.edge.includes('top') || drag.edge.includes('bottom')
+          const horizontalSign = drag.edge.includes('left') ? -1 : 1
+          const verticalSign = drag.edge.includes('top') ? -1 : 1
+          const horizontalChange = horizontal
+            ? ((event.clientX - drag.startX) * horizontalSign * (drag.alignment === 'center' ? 200 : 100)) / drag.containerWidth
+            : 0
+          const verticalChange = vertical
+            ? ((event.clientY - drag.startY) * verticalSign * drag.frameWidth * 100) / (drag.frameHeight * drag.containerWidth)
+            : 0
+          const change = horizontal && vertical
+            ? Math.abs(horizontalChange) > Math.abs(verticalChange) ? horizontalChange : verticalChange
+            : horizontalChange + verticalChange
+          setImageWidth(drag.figure, drag.startWidth + change)
+        }}
+        onPointerUp={(event) => finishResize(event.pointerId)}
+        onPointerCancel={(event) => finishResize(event.pointerId)}
+        onFocusCapture={(event) => {
+          const target = event.target
+          if (!(target instanceof HTMLElement)) return
+          const figure = target.closest<HTMLElement>('figure[data-image-id]')
+          const root = rootRef.current
+          if (root && figure) selectImageFigure(root, figure)
+        }}
+        onKeyUp={(event) => {
+          if (event.target instanceof HTMLInputElement && event.target.dataset.imageWidth && ['ArrowUp', 'ArrowDown'].includes(event.key)) commitWidthInput(event.target)
+        }}
+        onBlurCapture={(event) => {
+          if (event.target instanceof HTMLInputElement && event.target.dataset.imageWidth) commitWidthInput(event.target)
+        }}
         onKeyDown={handleKeyDown}
         onPaste={(event) => {
           event.preventDefault()
@@ -264,9 +417,20 @@ export function JournalBodyEditor({
           const target = event.target
           if (target instanceof HTMLElement && target.dataset.removeImage) {
             removeImage(target.dataset.removeImage)
-          } else if (target === event.currentTarget) {
-            const root = rootRef.current
-            if (!root) return
+            return
+          }
+          const alignmentButton = target instanceof HTMLElement ? target.closest<HTMLButtonElement>('button[data-image-align]') : null
+          if (alignmentButton) {
+            const figure = alignmentButton.closest<HTMLElement>('figure[data-image-id]')
+            const alignment = alignmentButton.dataset.imageAlign
+            if (figure && (alignment === 'left' || alignment === 'center' || alignment === 'right')) setImageAlignment(figure, alignment)
+            return
+          }
+          const root = rootRef.current
+          if (!root) return
+          const figure = target instanceof HTMLElement ? target.closest<HTMLElement>('figure[data-image-id]') : null
+          selectImageFigure(root, figure)
+          if (target === event.currentTarget) {
             const last = root.lastElementChild
             if (last?.tagName === 'P') {
               const selection = document.getSelection()

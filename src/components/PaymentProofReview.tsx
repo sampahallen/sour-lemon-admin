@@ -1,14 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/auth/authContext'
 import type { PaymentProofSummary } from '@/api/orders'
 import { loadPaymentProofImage, reviewPaymentProof } from '@/api/manualPayments'
+import { useImagePreview } from '@/components/ui/imagePreviewContext'
 
 function PaymentProofImage({ id }: { id: string }) {
+  const { openImagePreview } = useImagePreview()
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState(false)
-  const [isOpen, setIsOpen] = useState(false)
-  const closeButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     let active = true
@@ -33,65 +32,17 @@ function PaymentProofImage({ id }: { id: string }) {
     }
   }, [id])
 
-  useEffect(() => {
-    if (!isOpen) return
-
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    closeButtonRef.current?.focus()
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false)
-      if (event.key === 'Tab') {
-        event.preventDefault()
-        closeButtonRef.current?.focus()
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      previousFocus?.focus()
-    }
-  }, [isOpen])
-
   if (error) return <p className="mt-2 text-xs text-flame">Could not load screenshot.</p>
-  if (!url) return <p className="mt-2 text-xs text-cocoa/55">Loading screenshot…</p>
+  if (!url) return <p className="mt-2 text-xs text-cocoa/55">Loading screenshot...</p>
 
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        aria-label="Open receipt screenshot"
-        className="mt-3 block overflow-hidden rounded-lg border border-cocoa/15 bg-butter/30 p-1 transition hover:border-olive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-olive"
-      >
-        <img src={url} alt="Receipt screenshot preview" className="h-28 w-28 object-contain sm:h-32 sm:w-32 lg:h-20 lg:w-20" />
-      </button>
-      {isOpen ? createPortal(
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Receipt screenshot"
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-cocoa/55 p-3 backdrop-blur-sm sm:p-6"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setIsOpen(false)
-          }}
-        >
-          <div className="relative inline-block max-w-full">
-            <button
-              ref={closeButtonRef}
-              type="button"
-              onClick={() => setIsOpen(false)}
-              aria-label="Close screenshot"
-              className="absolute right-2 top-2 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-cocoa/85 text-2xl text-white transition hover:bg-cocoa focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-olive"
-            >
-              ×
-            </button>
-            <img src={url} alt="Full receipt screenshot" className="block max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-1.5rem)] rounded-xl object-contain shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:max-w-[calc(100vw-3rem)]" />
-          </div>
-        </div>,
-        document.body,
-      ) : null}
-    </>
-  )
+  return <button
+    type="button"
+    onClick={() => openImagePreview({ src: url, alt: 'Receipt screenshot' })}
+    aria-label="Open receipt screenshot"
+    className="mt-3 block overflow-hidden rounded-lg border border-cocoa/15 bg-butter/30 p-1 transition hover:border-olive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-olive"
+  >
+    <img src={url} alt="Receipt screenshot preview" className="h-28 w-28 object-contain sm:h-32 sm:w-32 lg:h-20 lg:w-20" />
+  </button>
 }
 
 export function PaymentProofReview({ proofs, onReviewed }: { proofs: PaymentProofSummary[]; onReviewed: () => Promise<void> | void }) {

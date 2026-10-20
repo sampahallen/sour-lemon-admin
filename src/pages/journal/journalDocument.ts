@@ -81,29 +81,98 @@ export function createParagraph() {
 export function createImageFigure(block: Extract<JournalBlock, { type: 'image' }>, image?: JournalPostImage) {
   const figure = document.createElement('figure')
   figure.dataset.imageId = block.imageId
+  const alignment = block.alignment === 'left' || block.alignment === 'right' ? block.alignment : 'center'
+  figure.dataset.align = alignment
+  const widthPercent = typeof block.widthPercent === 'number' && Number.isFinite(block.widthPercent)
+    ? Math.min(100, Math.max(25, block.widthPercent))
+    : 100
+  figure.dataset.widthPercent = String(widthPercent)
   figure.contentEditable = 'false'
+  const frame = document.createElement('div')
+  frame.className = 'journal-image-frame'
+  frame.style.width = `${widthPercent}%`
+  frame.tabIndex = 0
+  frame.setAttribute('role', 'group')
+  frame.setAttribute('aria-label', `Journal image: ${image?.altText || 'photo'}`)
   if (image) {
     const photo = document.createElement('img')
     photo.src = image.url
     photo.alt = image.altText
-    figure.append(photo)
+    frame.append(photo)
   } else {
     const unavailable = document.createElement('div')
     unavailable.className = 'journal-document-image-missing'
     unavailable.textContent = 'Photo unavailable'
-    figure.append(unavailable)
+    frame.append(unavailable)
   }
+  for (const edge of ['top-left', 'top', 'top-right', 'right', 'bottom-right', 'bottom', 'bottom-left', 'left']) {
+    const resizeHandle = document.createElement('button')
+    resizeHandle.type = 'button'
+    resizeHandle.className = 'journal-image-resize-handle'
+    resizeHandle.dataset.resizeImage = edge
+    resizeHandle.setAttribute('aria-label', `Resize image from ${edge.replace('-', ' ')}; drag or use arrow keys`)
+    frame.append(resizeHandle)
+  }
+  figure.append(frame)
   const caption = document.createElement('figcaption')
   caption.dataset.placeholder = 'Add a caption…'
   caption.contentEditable = 'true'
   caption.textContent = block.caption ?? ''
+  caption.style.width = `${widthPercent}%`
   figure.append(caption)
+  const toolbar = document.createElement('div')
+  toolbar.className = 'journal-image-toolbar'
+  toolbar.setAttribute('role', 'group')
+  toolbar.setAttribute('aria-label', 'Image controls')
+  const sizeControl = document.createElement('label')
+  sizeControl.className = 'journal-image-width-field'
+  sizeControl.textContent = 'Width'
+  const widthInput = document.createElement('input')
+  widthInput.type = 'number'
+  widthInput.min = '25'
+  widthInput.max = '100'
+  widthInput.step = '1'
+  widthInput.value = String(widthPercent)
+  widthInput.dataset.imageWidth = block.imageId
+  widthInput.setAttribute('aria-label', `Width of ${image?.altText || 'journal photo'} in percent`)
+  const percent = document.createElement('span')
+  percent.textContent = '%'
+  sizeControl.append(widthInput, percent)
+  toolbar.append(sizeControl)
+  const alignmentControls = document.createElement('div')
+  alignmentControls.className = 'journal-image-alignment'
+  alignmentControls.setAttribute('role', 'group')
+  alignmentControls.setAttribute('aria-label', 'Image alignment')
+  const alignmentLabel = document.createElement('span')
+  alignmentLabel.className = 'journal-image-alignment-label'
+  alignmentLabel.textContent = 'Align'
+  alignmentControls.append(alignmentLabel)
+  for (const option of ['left', 'center', 'right'] as const) {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.dataset.imageAlign = option
+    button.setAttribute('aria-label', `Align image ${option}`)
+    button.setAttribute('aria-pressed', String(alignment === option))
+    button.title = `Align ${option}`
+    const icon = document.createElement('span')
+    icon.className = `journal-image-align-icon journal-image-align-icon-${option}`
+    icon.setAttribute('aria-hidden', 'true')
+    for (const length of [14, 9, 14]) {
+      const line = document.createElement('span')
+      line.style.width = `${length}px`
+      icon.append(line)
+    }
+    button.append(icon)
+    alignmentControls.append(button)
+  }
+  toolbar.append(alignmentControls)
   const remove = document.createElement('button')
   remove.type = 'button'
   remove.dataset.removeImage = block.imageId
   remove.setAttribute('aria-label', 'Remove photo')
   remove.textContent = 'Remove photo'
-  figure.append(remove)
+  toolbar.append(remove)
+  figure.append(toolbar)
   return figure
 }
 
@@ -152,7 +221,14 @@ export function readJournalDocument(root: HTMLElement): JournalBlock[] {
     if (!(node instanceof HTMLElement)) continue
     const tag = node.tagName.toLowerCase()
     if (tag === 'figure' && node.dataset.imageId) {
-      blocks.push({ type: 'image', imageId: node.dataset.imageId, caption: node.querySelector('figcaption')?.textContent ?? '' })
+      const width = Number(node.dataset.widthPercent)
+      blocks.push({
+        type: 'image',
+        imageId: node.dataset.imageId,
+        caption: node.querySelector('figcaption')?.textContent ?? '',
+        ...(Number.isFinite(width) && width < 100 ? { widthPercent: Math.min(100, Math.max(25, width)) } : {}),
+        ...(node.dataset.align === 'left' || node.dataset.align === 'right' ? { alignment: node.dataset.align } : {}),
+      })
     } else if (tag === 'ul' || tag === 'ol') {
       const lines = Array.from(node.children).filter((child): child is HTMLLIElement => child.tagName === 'LI')
       const values = lines.map(textValue)

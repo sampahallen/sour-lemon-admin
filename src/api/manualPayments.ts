@@ -2,13 +2,14 @@ import { apiRequest } from './client'
 import { apiBaseUrl } from '@/auth/authApi'
 import { accessTokenForRequest } from '@/auth/sessionManager'
 import type { PaymentProofSummary } from './orders'
+import type { Pagination } from './types'
 
 export interface QueuedProof extends PaymentProofSummary {
   orderId: string | null
   customCakeRequestId: string | null
 }
 
-export const listPaymentProofs = (token: string) => apiRequest<{ proofs: QueuedProof[] }>('/api/payments/manual/proofs', token)
+export const listPaymentProofs = (token: string, page = 1) => apiRequest<{ proofs: QueuedProof[]; pagination: Pagination }>(`/api/payments/manual/proofs?page=${page}`, token)
 export const reviewPaymentProof = (token: string, id: string, decision: 'confirm' | 'reject', reason?: string) =>
   apiRequest<{ proof: PaymentProofSummary }>(`/api/payments/manual/proofs/${id}/review`, token, { method: 'POST', json: { decision, reason } })
 

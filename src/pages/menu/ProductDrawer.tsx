@@ -12,6 +12,7 @@ import {
 } from '@/api/products'
 import { Button } from '@/components/ui/Button'
 import { Drawer } from '@/components/ui/Drawer'
+import { useImagePreview } from '@/components/ui/imagePreviewContext'
 import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 import { parseGhanaDateTime, toGhanaDateTime } from '@/utils/ghanaDateTime'
 import { AvailabilityDateTimePicker } from './AvailabilityDateTimePicker'
@@ -41,6 +42,7 @@ export function ProductDrawer({
   onSaved: () => Promise<void> | void
 }) {
   const { session } = useAuth()
+  const { openImagePreview, closeImagePreview } = useImagePreview()
   const token = session!.token
   const isOpen = productId !== null
 
@@ -250,6 +252,7 @@ export function ProductDrawer({
   }
 
   const removePendingPhoto = (photoId: string) => {
+    closeImagePreview()
     const removed = pendingPhotos.find((photo) => photo.id === photoId)
     if (removed) URL.revokeObjectURL(removed.previewUrl)
     replacePendingPhotos(pendingPhotos.filter((photo) => photo.id !== photoId))
@@ -257,6 +260,7 @@ export function ProductDrawer({
 
   const handleDeleteImage = async (imageId: string) => {
     if (!product) return
+    closeImagePreview()
     setError(null)
     try {
       await deleteProductImage(token, product.id, imageId)
@@ -310,7 +314,9 @@ export function ProductDrawer({
             <div className="flex flex-wrap items-start gap-3">
               {product?.images.map((image, index) => (
                 <div key={image.id} className="group relative h-20 w-20 overflow-hidden rounded-2xl border-2 border-cocoa/10 bg-cream">
-                  <img src={image.url} alt={image.altText ?? ''} className="h-full w-full object-cover" />
+                  <button type="button" aria-label={`Preview ${image.altText ?? 'product photo'}`} onClick={() => openImagePreview({ src: image.url, alt: image.altText ?? 'Product photo' })} className="h-full w-full focus-visible:outline-2 focus-visible:outline-flame">
+                    <img src={image.url} alt={image.altText ?? ''} className="h-full w-full object-cover" />
+                  </button>
                   <button
                     type="button"
                     aria-label={`Remove ${image.altText ?? 'photo'}`}
@@ -345,7 +351,9 @@ export function ProductDrawer({
               ))}
               {pendingPhotos.map((photo) => (
                 <div key={photo.id} className="relative h-20 w-20 overflow-hidden rounded-2xl border-2 border-flame bg-cream">
-                  <img src={photo.previewUrl} alt="Selected product preview" className="h-full w-full object-cover" />
+                  <button type="button" aria-label="Preview selected product photo" onClick={() => openImagePreview({ src: photo.previewUrl, alt: photo.file.name })} className="h-full w-full focus-visible:outline-2 focus-visible:outline-flame">
+                    <img src={photo.previewUrl} alt="Selected product preview" className="h-full w-full object-cover" />
+                  </button>
                   <button
                     type="button"
                     aria-label="Remove selected photo"

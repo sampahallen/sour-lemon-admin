@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Button } from '@/components/ui/Button'
@@ -18,11 +18,16 @@ import { getCustomCakeWhatsAppOptions } from '@/api/whatsapp'
 import { WhatsAppComposer } from '@/components/whatsapp/WhatsAppComposer'
 import { useFormValidation, type FieldErrors } from '@/hooks/useFormValidation'
 import { PaymentProofReview } from '@/components/PaymentProofReview'
+import { useImagePreview } from '@/components/ui/imagePreviewContext'
+import { APP_SETTING_KEYS, listAppSettings } from '@/api/appSettings'
+import { useOperationsLive } from '@/components/layout/operationsLiveContext'
 
 export function CustomCakeRequestDetailPage() {
+  const { openImagePreview } = useImagePreview()
   const { requestId } = useParams()
   const { session } = useAuth()
   const token = session!.token
+  const { revisions, status: liveStatus } = useOperationsLive()
   const navigate = useNavigate()
 
   const [request, setRequest] = useState<CustomCakeRequestDetail | null>(null)
@@ -31,6 +36,9 @@ export function CustomCakeRequestDetailPage() {
   const [whatsappTemplateId, setWhatsappTemplateId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [paymentLink, setPaymentLink] = useState<string | null>(null)
+  const [momoConfigured, setMomoConfigured] = useState<boolean | null>(null)
+  const [momoSettingsError, setMomoSettingsError] = useState(false)
+  const requestVersion = useRef(0)
   const validateQuote = (): FieldErrors<'quotedAmount'> => {
     if (!quotedAmount.trim()) return { quotedAmount: 'Enter a quote amount.' }
     if (!/^\d+(?:\.\d{1,2})?$/.test(quotedAmount.trim()) || Number(quotedAmount) < 0.01 || Number(quotedAmount) > 999_999_999.99) {
@@ -40,23 +48,46 @@ export function CustomCakeRequestDetailPage() {
   }
   const validation = useFormValidation<'quotedAmount'>('cake-quote', validateQuote)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!requestId) return
+    const version = ++requestVersion.current
     const { request } = await getCustomCakeRequest(token, requestId)
-    setRequest(request)
-  }
+    if (version === requestVersion.current) {
+      setRequest(request)
+      setError(null)
+    }
+  }, [requestId, token])
 
   useEffect(() => {
-    load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [requestId])
+    // Load the server-owned request when the selected ID changes.
+    // oxlint-disable-next-line react/set-state-in-effect
+    void load().catch((caught: unknown) => setError(caught instanceof Error ? caught.message : 'Could not load this cake request.'))
+    return () => { requestVersion.current += 1 }
+  }, [load])
+
+  useEffect(() => {
+    // Live revisions invalidate the current server-owned request.
+    // oxlint-disable-next-line react/set-state-in-effect
+    if (revisions.cakes) void load().catch((caught: unknown) => setError(caught instanceof Error ? caught.message : 'Could not refresh this cake request.'))
+  }, [revisions.cakes, load])
+
+  useEffect(() => {
+    void listAppSettings(token).then(({ settings }) => {
+      const values = new Map(settings.map((setting) => [setting.key, setting.value]))
+      setMomoConfigured([
+        APP_SETTING_KEYS.momoPaymentNumber,
+        APP_SETTING_KEYS.momoRecipientName,
+        APP_SETTING_KEYS.momoNetwork,
+      ].every((key) => typeof values.get(key) === 'string' && String(values.get(key)).trim().length > 0))
+    }).catch(() => { setMomoConfigured(false); setMomoSettingsError(true) })
+  }, [token])
 
   const loadWhatsAppOptions = useCallback(() => {
     if (!requestId) return Promise.reject(new Error('Custom cake request not found.'))
     return getCustomCakeWhatsAppOptions(token, requestId)
   }, [requestId, token])
 
-  if (!request) return <p className="text-cocoa/60">Loading…</p>
+  if (!request) return <p className="text-cocoa/60">{error ?? 'Loading…'}</p>
 
   const handleQuote = async () => {
     if (!validation.submit()) return
@@ -65,6 +96,7 @@ export function CustomCakeRequestDetailPage() {
     try {
       const { request: updatedRequest } = await quoteCustomCakeRequest(token, request.id, { quotedAmount })
       setRequest(updatedRequest)
+      setPaymentLink(null)
       setQuotedAmount('')
       validation.reset()
       setWhatsappTemplateId('quote_ready')
@@ -107,11 +139,12 @@ export function CustomCakeRequestDetailPage() {
     <div>
       <PageHeader
         title="Custom cake request"
-        action={
+        action={<div className="flex items-center gap-3">
+          <span className={`text-xs font-semibold ${liveStatus === 'connected' ? 'text-olive' : 'text-flame'}`}>{liveStatus === 'connected' ? '● Live' : '● Reconnecting'}</span>
           <Button variant="outline" onClick={() => navigate('/custom-cakes')}>
             Back to requests
           </Button>
-        }
+        </div>}
       />
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -129,7 +162,7 @@ export function CustomCakeRequestDetailPage() {
           {request.images.length > 0 ? (
             <div className="mt-6"><h3 className="mb-3 text-sm font-bold">Reference photos</h3><div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {request.images.map((image) => (
-                <a key={image.id} href={image.url} target="_blank" rel="noreferrer" aria-label="Open full reference photo"><img src={image.url} alt="Cake reference supplied by customer" className="aspect-square w-full rounded-xl object-cover" /></a>
+                <button key={image.id} type="button" onClick={() => openImagePreview({ src: image.url, alt: 'Cake reference supplied by customer' })} aria-label="Preview full reference photo" className="rounded-xl focus-visible:outline-2 focus-visible:outline-flame"><img src={image.url} alt="Cake reference supplied by customer" className="aspect-square w-full rounded-xl object-cover" /></button>
               ))}
             </div></div>
           ) : null}
@@ -148,9 +181,13 @@ export function CustomCakeRequestDetailPage() {
             </div>
           ) : null}
           {request.quotedAmount && ['quoted', 'awaiting_payment'].includes(request.status) ? <div className="mb-4 grid gap-2">
-            <Button variant="outline" onClick={() => void getCakePaymentLink(token, request.id).then(({ url }) => setPaymentLink(url)).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : 'Could not get link'))}>Show payment link</Button>
+            {momoConfigured === false ? <div className="rounded-lg border border-flame/20 bg-flame/5 p-3 text-sm text-cocoa/70">
+              {momoSettingsError ? 'Could not check the Mobile Money settings. Please reload this page.' : 'Set the Mobile Money number, recipient name, and network in Settings before sharing a payment link.'}{' '}
+              <Button to="/settings" variant="outline" size="md" className="mt-2">Open Settings</Button>
+            </div> : null}
+            <Button variant="outline" disabled={momoConfigured !== true} onClick={() => void getCakePaymentLink(token, request.id).then(({ url }) => { setPaymentLink(url); setError(null) }).catch((caught: unknown) => { setPaymentLink(null); setError(caught instanceof Error ? caught.message : 'Could not get link') })}>Show payment link</Button>
             {paymentLink && <><input aria-label="Cake payment link" readOnly value={paymentLink} className="w-full rounded-lg border border-cocoa/20 p-2 text-xs" /><Button variant="outline" onClick={() => void navigator.clipboard.writeText(paymentLink)}>Copy link</Button></>}
-            <button className="text-xs text-cocoa/50 underline" onClick={() => void rotateCakePaymentLink(token, request.id).then(({ url }) => setPaymentLink(url)).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : 'Could not rotate link'))}>Revoke old link and create a new one</button>
+            <button disabled={momoConfigured !== true} className="text-xs text-cocoa/50 underline disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void rotateCakePaymentLink(token, request.id).then(({ url }) => { setPaymentLink(url); setError(null) }).catch((caught: unknown) => { setPaymentLink(null); setError(caught instanceof Error ? caught.message : 'Could not rotate link') })}>Revoke old link and create a new one</button>
           </div> : null}
 
           {['submitted', 'quoted'].includes(request.status) ? (
