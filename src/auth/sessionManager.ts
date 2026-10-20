@@ -87,7 +87,7 @@ const refreshOnce = async (): Promise<AuthSession> => {
   if (!response.ok) throw new Error('Could not reconnect. Please try again.')
   const session = await response.json() as AuthSession
   if (startedAtEpoch !== authEpoch || signedOut) throw new Error('This session was signed out.')
-  if (session.user.role !== role) {
+  if (session.user.role !== role || !session.user.roles.includes(role)) {
     requireSignIn()
     throw new Error('This account does not have admin access.')
   }

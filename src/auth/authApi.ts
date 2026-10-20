@@ -7,6 +7,7 @@ export interface AuthUser {
   phoneNumber: string
   whatsappNumber: string | null
   role: 'customer' | 'admin'
+  roles: ('customer' | 'admin')[]
   isActive: boolean
   isDeleted: boolean
   createdAt: string
