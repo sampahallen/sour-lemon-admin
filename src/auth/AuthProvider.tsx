@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn: AuthContextValue['signIn'] = useCallback(async (credentials) => {
     const session = await signInRequest(credentials)
-    if (session.user.role !== 'admin') throw new Error('This account does not have admin access.')
+    if (session.user.role !== 'admin' || !session.user.roles.includes('admin')) throw new Error('This account does not have admin access.')
     const previous = getAuthState()
     acceptSession(session)
     if (previous.requiresSignIn && previous.session && previous.session.user.id !== session.user.id) window.location.reload()
