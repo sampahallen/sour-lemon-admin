@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
 import { StatusBadge } from '@/components/ui/StatusBadge'
@@ -12,6 +12,10 @@ export function SiteSectionsPage() {
   const [sections, setSections] = useState<SiteSection[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const pendingIds = useRef(new Set<string>())
+  const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
+  const [saveErrors, setSaveErrors] = useState<Record<string, string | undefined>>({})
 
   const refresh = async () => {
     try {
@@ -29,11 +33,21 @@ export function SiteSectionsPage() {
   }, [])
 
   const toggleSection = async (section: SiteSection, input: { isEnabled?: boolean; showComingSoon?: boolean }) => {
+    if (pendingIds.current.has(section.id)) return
+    pendingIds.current.add(section.id)
+    setSavingIds(new Set(pendingIds.current))
+    setSaveErrors((current) => ({ ...current, [section.id]: undefined }))
+    setSections((current) => current.map((item) => item.id === section.id ? { ...item, ...input } : item))
     try {
-      await updateSiteSection(token, section.id, input)
-      await refresh()
+      const { section: savedSection } = await updateSiteSection(token, section.id, input)
+      setSections((current) => current.map((item) => item.id === section.id ? savedSection : item))
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not update this section.')
+      setSections((current) => current.map((item) => item.id === section.id ? section : item))
+      const message = caught instanceof Error ? caught.message : 'Could not update this section.'
+      setSaveErrors((current) => ({ ...current, [section.id]: `Could not save ${section.name}. ${message}` }))
+    } finally {
+      pendingIds.current.delete(section.id)
+      setSavingIds(new Set(pendingIds.current))
     }
   }
 
@@ -62,16 +76,19 @@ export function SiteSectionsPage() {
                 <div className="flex flex-wrap items-center gap-3"><p className="font-display text-lg font-bold">{section.name}</p><StatusBadge label={!section.isEnabled ? 'Hidden' : section.showComingSoon ? 'Coming soon' : 'Live'} tone={!section.isEnabled ? 'neutral' : section.showComingSoon ? 'warning' : 'positive'} /></div>
                 <p className="mt-1 text-xs text-cocoa/55">{!section.isEnabled ? 'This section is not shown to customers.' : section.showComingSoon ? 'Customers see a coming soon placeholder.' : 'Customers can open this section.'}</p>
               </div>
-              <div className="flex flex-col items-start gap-3 rounded-xl bg-[#faf9f6] px-4 py-3">
+              <div aria-busy={savingIds.has(section.id)} className="flex flex-col items-start gap-3 rounded-xl bg-[#faf9f6] px-4 py-3">
                 <ToggleSwitch
                   label="Enabled"
+                  disabled={savingIds.has(section.id)}
                   checked={section.isEnabled}
                   onChange={(next) => void toggleSection(section, { isEnabled: next })}
                 />
                 <label className="flex items-center gap-2 text-sm font-medium">
-                  <input type="checkbox" className="enabled:cursor-pointer accent-flame" checked={section.showComingSoon} disabled={!section.isEnabled} onChange={(event) => void toggleSection(section, { showComingSoon: event.target.checked })} />
+                  <input type="checkbox" className="enabled:cursor-pointer accent-flame" checked={section.showComingSoon} disabled={!section.isEnabled || savingIds.has(section.id)} onChange={(event) => void toggleSection(section, { showComingSoon: event.target.checked })} />
                   Show coming soon
                 </label>
+                {savingIds.has(section.id) ? <p role="status" className="text-xs text-cocoa/60">Saving…</p> : null}
+                {saveErrors[section.id] ? <p role="alert" className="max-w-xs text-xs text-flame">{saveErrors[section.id]}</p> : null}
               </div>
             </div>
           ))}
