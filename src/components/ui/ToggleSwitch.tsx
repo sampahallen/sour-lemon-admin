@@ -20,7 +20,7 @@ export function ToggleSwitch({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(
-          'relative h-6 w-11 shrink-0 rounded-full transition-colors',
+          'relative h-6 w-11 shrink-0 rounded-full transition-colors enabled:cursor-pointer',
           checked ? 'bg-flame' : 'bg-cocoa/20',
         )}
       >

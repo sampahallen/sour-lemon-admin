@@ -59,21 +59,19 @@ export function SiteSectionsPage() {
           {sections.map((section) => (
             <div key={section.id} className="grid gap-5 p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div>
-                <div className="flex flex-wrap items-center gap-3"><p className="font-display text-lg font-bold">{section.name}</p><StatusBadge label={section.isEnabled ? 'Live' : section.showComingSoon ? 'Coming soon' : 'Hidden'} tone={section.isEnabled ? 'positive' : section.showComingSoon ? 'warning' : 'neutral'} /></div>
-                <p className="mt-1 text-xs text-cocoa/55">{section.isEnabled ? 'Customers can open this section.' : section.showComingSoon ? 'Customers see a coming soon placeholder.' : 'This section is not shown to customers.'}</p>
+                <div className="flex flex-wrap items-center gap-3"><p className="font-display text-lg font-bold">{section.name}</p><StatusBadge label={!section.isEnabled ? 'Hidden' : section.showComingSoon ? 'Coming soon' : 'Live'} tone={!section.isEnabled ? 'neutral' : section.showComingSoon ? 'warning' : 'positive'} /></div>
+                <p className="mt-1 text-xs text-cocoa/55">{!section.isEnabled ? 'This section is not shown to customers.' : section.showComingSoon ? 'Customers see a coming soon placeholder.' : 'Customers can open this section.'}</p>
               </div>
-              <div className="flex flex-wrap items-center gap-5 rounded-xl bg-[#faf9f6] px-4 py-3">
+              <div className="flex flex-col items-start gap-3 rounded-xl bg-[#faf9f6] px-4 py-3">
                 <ToggleSwitch
                   label="Enabled"
                   checked={section.isEnabled}
                   onChange={(next) => void toggleSection(section, { isEnabled: next })}
                 />
-                <ToggleSwitch
-                  label="Show coming soon"
-                  checked={section.showComingSoon}
-                  disabled={section.isEnabled}
-                  onChange={(next) => void toggleSection(section, { showComingSoon: next })}
-                />
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" className="enabled:cursor-pointer accent-flame" checked={section.showComingSoon} disabled={!section.isEnabled} onChange={(event) => void toggleSection(section, { showComingSoon: event.target.checked })} />
+                  Show coming soon
+                </label>
               </div>
             </div>
           ))}
